@@ -1,9 +1,3 @@
-const fs = require('fs');
-const path = require('path');
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILE = path.join(DATA_DIR, 'recurring.json');
-
 let store = [];
 
 function genId() {
@@ -11,25 +5,7 @@ function genId() {
 }
 
 function load() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (fs.existsSync(FILE)) {
-      const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-      if (Array.isArray(raw)) store = raw;
-    }
-  } catch (err) {
-    console.error('[recurring] load error:', err.message);
-    store = [];
-  }
-}
-
-function save() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(store, null, 2));
-  } catch (err) {
-    console.error('[recurring] save error:', err.message);
-  }
+  // In-memory only — no file I/O on Railway
 }
 
 function getAll() { return store; }
@@ -55,7 +31,6 @@ function create(fields) {
     active:           true,
   };
   store.push(rec);
-  save();
   return rec;
 }
 
@@ -63,22 +38,19 @@ function update(id, fields) {
   const idx = store.findIndex(r => r.id === id);
   if (idx === -1) return null;
   Object.assign(store[idx], fields);
-  save();
   return store[idx];
 }
 
 function remove(id) {
   const before = store.length;
   store = store.filter(r => r.id !== id);
-  if (store.length < before) { save(); return true; }
-  return false;
+  return store.length < before;
 }
 
 function togglePause(id) {
   const rec = store.find(r => r.id === id);
   if (!rec) return null;
   rec.active = !rec.active;
-  save();
   return rec;
 }
 

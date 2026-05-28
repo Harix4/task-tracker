@@ -1327,7 +1327,7 @@
       </div>
       <div class="form-field">
         <div class="form-label">Set Reminder</div>
-        ${reminderSection}
+        <div id="panel-reminder-section">${reminderSection}</div>
       </div>
       <div class="form-field">
         <div class="form-label">Last Edited</div>
@@ -2109,19 +2109,41 @@
     scheduleMetaSave(taskId);
   }
 
-  async function setReminderForTask(taskId, taskName, intervalKey) {
+  function setReminderForTask(taskId, taskName, intervalKey) {
+    // Optimistic UI: immediately show active badge
+    const sec = document.getElementById('panel-reminder-section');
+    if (sec) {
+      const label = INTERVAL_LABELS[intervalKey] || intervalKey;
+      sec.innerHTML =
+        `<div class="reminder-active-pill">` +
+        `⏰ Reminding every ${label}` +
+        `<button type="button" class="reminder-cancel-btn" onclick="cancelReminderForTask('${taskId}')">×</button>` +
+        `</div>`;
+    }
+    // Fire POST in background — no panel reload
     const assigneeNames = getPickerSelections('panel-pp');
-    const res = await fetch('/reminders', {
+    fetch('/reminders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId, taskName, intervalKey, assigneeNames }),
-    });
-    if (res.ok) openPanel(taskId);
+    }).catch(err => console.error('[setReminderForTask]', err));
   }
 
-  async function cancelReminderForTask(taskId) {
-    await fetch(`/reminders/${taskId}`, { method: 'DELETE' });
-    openPanel(taskId);
+  function cancelReminderForTask(taskId) {
+    // Optimistic UI: immediately restore pill list
+    const sec = document.getElementById('panel-reminder-section');
+    const task = (state.tasks || []).find(t => t.id === taskId);
+    if (sec && task) {
+      sec.innerHTML =
+        `<div class="rem-pills">` +
+        REMINDER_OPTIONS.map(([key, label]) =>
+          `<button type="button" class="rem-pill" onclick="setReminderForTask('${esc(taskId)}','${esc(task.name)}','${key}')">${label}</button>`
+        ).join('') +
+        `</div>`;
+    }
+    // Fire DELETE in background — no panel reload
+    fetch(`/reminders/${taskId}`, { method: 'DELETE' })
+      .catch(err => console.error('[cancelReminderForTask]', err));
   }
 
   // ── Recurring tasks ────────────────────────────────────────────────────────

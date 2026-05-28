@@ -1,11 +1,6 @@
-const fs = require('fs');
-const path = require('path');
 const notion = require('./notion');
 const telegram = require('./telegram');
 const team = require('./team');
-
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILE = path.join(DATA_DIR, 'reminders.json');
 
 const INTERVAL_LABELS = {
   '10min': '10 minutes',
@@ -29,41 +24,6 @@ const INTERVAL_MINUTES = {
 
 // { taskId → { taskId, taskName, intervalKey, lastSentAt, createdAt } }
 const store = {};
-
-// ── Persistence ──────────────────────────────────────────────────────────────
-
-function load() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(FILE)) return;
-    const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-    if (raw && typeof raw === 'object') {
-      for (const [taskId, r] of Object.entries(raw)) {
-        if (r.intervalKey && INTERVAL_MINUTES[r.intervalKey]) {
-          store[taskId] = {
-            taskId,
-            taskName:    r.taskName   || taskId,
-            intervalKey: r.intervalKey,
-            lastSentAt:  r.lastSentAt || null,
-            createdAt:   r.createdAt  || new Date().toISOString(),
-          };
-        }
-      }
-      console.log(`[reminders] loaded ${Object.keys(store).length} reminder(s) from disk`);
-    }
-  } catch (err) {
-    console.error('[reminders] load error:', err.message);
-  }
-}
-
-function save() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(store, null, 2));
-  } catch (err) {
-    console.error('[reminders] save error:', err.message);
-  }
-}
 
 // ── Core ─────────────────────────────────────────────────────────────────────
 
@@ -110,14 +70,12 @@ function set(taskId, taskName, intervalKey) {
     lastSentAt: existing?.lastSentAt || null,
     createdAt:  existing?.createdAt  || new Date().toISOString(),
   };
-  save();
   console.log(`[reminders] set ${intervalKey} reminder for "${taskName}"`);
 }
 
 function cancel(taskId) {
   if (store[taskId]) {
     delete store[taskId];
-    save();
     console.log(`[reminders] cancelled reminder for ${taskId}`);
   }
 }
@@ -135,7 +93,6 @@ function get(taskId) {
 
 async function checkAndFire() {
   const now = Date.now();
-  let dirty = false;
   for (const r of Object.values(store)) {
     const minutes = INTERVAL_MINUTES[r.intervalKey];
     if (!minutes) continue;
@@ -143,12 +100,9 @@ async function checkAndFire() {
     const lastSent = r.lastSentAt ? new Date(r.lastSentAt).getTime() : 0;
     if (now - lastSent >= ms) {
       r.lastSentAt = new Date().toISOString();
-      dirty = true;
       await fire(r.taskId).catch(console.error);
     }
   }
-  // Persist updated lastSentAt values so they survive a restart
-  if (dirty) save();
 }
 
-module.exports = { load, set, cancel, getAll, get, checkAndFire, INTERVAL_LABELS, INTERVAL_MINUTES };
+module.exports = { set, cancel, getAll, get, checkAndFire, INTERVAL_LABELS, INTERVAL_MINUTES };

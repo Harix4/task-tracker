@@ -377,6 +377,20 @@ app.post('/recurring/:id/toggle', (req, res) => {
   res.json({ recurring: updated });
 });
 
+// ── Export endpoint ──────────────────────────────────────────────────────────
+
+// Returns all in-memory data as JSON for manual backup
+app.get('/export', (req, res) => {
+  res.json({
+    exportedAt: new Date().toISOString(),
+    archive:    archive.getAll(),
+    resources:  resources.getAll(),
+    tasksMeta:  tasksMeta.getAll(),
+    recurring:  recurring.getAll(),
+    reminders:  reminders.getAll(),
+  });
+});
+
 // Returns live performance tally computed from the Tasks database
 app.get('/performance', async (req, res) => {
   try {
@@ -455,7 +469,6 @@ async function start() {
   resources.load();
   tasksMeta.load();
   recurring.load();
-  reminders.load();
   startScheduler();
 
   // Long-poll Telegram in the background — does not block the HTTP server
