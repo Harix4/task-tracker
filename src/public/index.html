@@ -265,17 +265,18 @@
       display: inline-flex;
       align-items: center;
       height: 22px;
-      padding: 0 9px;
+      padding: 0 10px;
       border-radius: 100px;
-      font-size: 11.5px;
+      font-size: 12px;
       font-weight: 500;
       white-space: nowrap;
+      color: #fff;
     }
-    .s-not-started { background: rgba(142,142,147,.10); color: var(--muted); }
-    .s-in-progress { background: rgba(0,113,227,.12);   color: var(--blue); }
-    .s-in-review   { background: rgba(255,149,0,.12);   color: var(--orange); }
-    .s-complete    { background: rgba(52,199,89,.12);   color: var(--green); }
-    .s-blocked     { background: rgba(255,59,48,.12);   color: var(--red); }
+    .s-not-started { background: #3a3a3c; }
+    .s-in-progress { background: #0071e3; }
+    .s-in-review   { background: #ff9500; }
+    .s-complete    { background: #34c759; }
+    .s-blocked     { background: #ff3b30; }
 
     /* Priority dot */
     .p-dot {
@@ -341,33 +342,63 @@
 
     th {
       text-align: left;
-      padding: 11px 16px;
-      font-size: 11.5px;
+      padding: 10px 16px;
+      font-size: 11px;
       font-weight: 600;
-      color: var(--muted);
+      color: #6e6e73;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      border-bottom: 1px solid var(--border);
-      background: rgba(0,0,0,0.015);
+      letter-spacing: 0.08em;
+      border-bottom: 0.5px solid rgba(255,255,255,0.08);
+      background: transparent;
       white-space: nowrap;
     }
-    @media (prefers-color-scheme: dark) { th { background: rgba(255,255,255,0.02); } }
+    th.th-cb { width: 44px; padding-right: 0; }
 
     td {
       padding: 11px 16px;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 0.5px solid rgba(255,255,255,0.05);
       color: var(--text);
       vertical-align: middle;
+      background: rgba(255,255,255,0.03);
     }
     tr:last-child td { border-bottom: none; }
-    tbody tr { cursor: pointer; transition: background 0.1s; }
-    tbody tr:hover td { background: rgba(0,0,0,0.02); }
-    @media (prefers-color-scheme: dark) { tbody tr:hover td { background: rgba(255,255,255,0.03); } }
+    tbody tr { cursor: pointer; transition: background 0.08s; }
+    tbody tr:hover td { background: rgba(255,255,255,0.06); }
 
+    .res-link-icon { color: var(--blue); font-size: 13px; }
     .sop-link-icon { color: var(--blue); font-size: 15px; }
     .sop-dash { color: var(--muted); }
-    .td-task { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    .td-task { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 500; color: #f5f5f7; }
     .td-assignee { display: flex; align-items: center; gap: 8px; }
+    .td-cb { width: 44px; padding-right: 0; }
+
+    /* ── Task checkbox ──────────────────────────────────────────── */
+    .task-cb {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.22);
+      background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .task-cb:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.06); }
+    .task-cb.checked { background: #34c759; border-color: #34c759; }
+    .cb-check {
+      width: 11px; height: 9px;
+      opacity: 0; transform: scale(0.5);
+      transition: opacity 0.15s, transform 0.15s;
+      pointer-events: none;
+    }
+    .task-cb.checked .cb-check { opacity: 1; transform: scale(1); }
+    @keyframes cb-pop {
+      0%   { transform: scale(1); }
+      35%  { transform: scale(1.25); }
+      100% { transform: scale(1); }
+    }
+    .task-cb.popping { animation: cb-pop 0.22s ease; }
 
     /* ── Overlay + Panel ────────────────────────────────────── */
     .overlay {
@@ -489,66 +520,27 @@
       transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
     }
 
-    /* ── SOPs grid ──────────────────────────────────────────── */
-    .sops-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-      gap: 14px;
+    /* ── Resources page ─────────────────────────────────────── */
+    .res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .res-section-title { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .res-card {
+      background: rgba(255,255,255,0.055); border: 0.5px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 18px; cursor: pointer;
+      transition: background 0.14s; display: flex; flex-direction: column; gap: 8px;
     }
-
-    .sop-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      overflow: hidden;
-    }
-    .sop-card-head {
-      padding: 13px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    .sop-card-count { font-size: 12px; color: var(--muted); }
-    .sop-item {
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-      gap: 10px;
-      font-size: 13px;
-    }
-    .sop-item:last-child { border-bottom: none; }
-    .sop-item-name {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .no-sop-badge {
-      font-size: 11px;
-      font-weight: 600;
-      background: rgba(255,149,0,.12);
-      color: var(--orange);
-      padding: 2px 8px;
-      border-radius: 100px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .sop-task-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--blue);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .sop-task-link:hover { text-decoration: underline; }
+    .res-card:hover { background: rgba(255,255,255,0.09); }
+    .res-card-title { font-size: 15px; font-weight: 600; color: #f5f5f7; }
+    .res-card-preview { font-size: 13px; color: var(--muted); line-height: 1.45; min-height: 36px; flex: 1; }
+    .res-card-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .res-card-date { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .res-textarea { min-height: 220px; resize: vertical; font-size: 13px; line-height: 1.65; }
+    .view-plan-btn { margin-top: 8px; padding: 8px 14px; border-radius: 8px; background: rgba(0,113,227,0.12); color: var(--blue); border: none; cursor: pointer; font-size: 13px; font-weight: 500; width: 100%; transition: background 0.12s; text-align: left; }
+    .view-plan-btn:hover { background: rgba(0,113,227,0.22); }
+    .back-btn { background: none; border: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 0 0 14px; display: flex; align-items: center; gap: 4px; }
+    .back-btn:hover { color: var(--text); }
+    .delete-resource-btn { padding: 10px 16px; border-radius: 10px; background: rgba(255,59,48,0.1); color: var(--red); border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.12s; flex-shrink: 0; }
+    .delete-resource-btn:hover { background: rgba(255,59,48,0.2); }
+    .res-icon { font-size: 12px; opacity: 0.6; }
 
     /* ── Empty / loading ────────────────────────────────────── */
     .empty {
@@ -643,6 +635,251 @@
       font-size: 12.5px;
       color: var(--red);
     }
+
+    /* ── View toggle ────────────────────────────────────────────── */
+    .view-toggle { display: flex; gap: 3px; }
+    .view-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      border: none;
+      padding: 0;
+    }
+    .view-btn:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+    .view-btn.active { background: rgba(255,255,255,0.14); color: #f5f5f7; }
+    .view-btn svg { width: 15px; height: 15px; }
+
+    /* ── Kanban board ───────────────────────────────────────────── */
+    .kb-board {
+      display: flex; gap: 12px; overflow-x: auto;
+      padding-bottom: 24px; align-items: flex-start;
+    }
+    .kb-board::-webkit-scrollbar { height: 5px; }
+    .kb-board::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 100px; }
+
+    .kb-col { flex-shrink: 0; width: 280px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; }
+    .kb-col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px 10px;
+      background: rgba(255,255,255,0.04);
+    }
+    .kb-col-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .kb-col-count {
+      font-size: 11.5px; color: var(--muted);
+      background: rgba(255,255,255,0.07);
+      padding: 1px 8px; border-radius: 100px;
+    }
+    .kb-col-body {
+      display: flex; flex-direction: column; gap: 8px;
+      min-height: 60px;
+      background: rgba(255,255,255,0.03);
+      padding: 8px;
+    }
+    .kb-col-footer { background: rgba(255,255,255,0.03); padding: 4px 6px 8px; }
+
+    .kb-card {
+      background: rgba(255,255,255,0.055);
+      border: 0.5px solid rgba(255,255,255,0.09);
+      border-radius: 12px; padding: 16px;
+      cursor: pointer; position: relative;
+      transition: background 0.15s, opacity 0.25s;
+    }
+    .kb-card:hover { background: rgba(255,255,255,0.09); }
+    .kb-card.overdue { border-left: 2px solid #ff3b30; }
+    .kb-card.kb-done { opacity: 0.6; }
+
+    .kb-card-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 8px; margin-bottom: 10px;
+    }
+    .kb-card-name { font-size: 15px; font-weight: 600; color: #f5f5f7; line-height: 1.35; flex: 1; }
+    .kb-done-badge {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: #34c759; display: flex; align-items: center; justify-content: center;
+    }
+    .kb-done-badge svg { width: 10px; height: 9px; }
+    .kb-assignee-row { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .kb-assignee { font-size: 12px; color: var(--muted); }
+    .kb-meta-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .kb-due { font-size: 12px; color: var(--muted); }
+    .kb-due.kb-overdue { color: var(--red); font-weight: 600; }
+    .kb-card-footer {
+      display: flex; align-items: center; justify-content: flex-end;
+      border-top: 0.5px solid rgba(255,255,255,0.07);
+      padding-top: 10px; margin-top: 2px;
+    }
+    .kb-move-btn {
+      font-size: 12px; color: var(--muted);
+      background: rgba(255,255,255,0.06); border: none; cursor: pointer;
+      padding: 4px 10px; border-radius: 6px;
+      transition: background 0.12s, color 0.12s; position: relative;
+    }
+    .kb-move-btn:hover { background: rgba(255,255,255,0.13); color: var(--text); }
+    .kb-move-menu {
+      position: fixed;
+      background: #2c2c2e; border: 0.5px solid rgba(255,255,255,0.15);
+      border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+      z-index: 2000; min-width: 150px; overflow: hidden;
+      animation: menuIn 0.12s ease;
+    }
+    @keyframes menuIn { from { opacity:0; transform:scale(0.95) translateY(4px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    .kb-move-item {
+      display: block; width: 100%; text-align: left;
+      padding: 10px 14px; font-size: 13px; color: var(--text);
+      background: none; border: none; cursor: pointer; transition: background 0.1s;
+    }
+    .kb-move-item:hover { background: rgba(255,255,255,0.08); }
+    .kb-move-item.current { color: var(--muted); cursor: default; }
+    .kb-move-item.current:hover { background: none; }
+    .kb-add-btn {
+      width: 100%; padding: 9px 14px; border-radius: 8px;
+      font-size: 12px; color: var(--muted);
+      background: none; border: none; cursor: pointer; text-align: left;
+      transition: background 0.12s, color 0.12s;
+    }
+    .kb-add-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+    .kb-empty { font-size: 12px; color: var(--muted); padding: 16px 4px; text-align: center; }
+
+    /* Segmented status control in detail panel */
+    .status-seg { display: flex; gap: 4px; flex-wrap: wrap; }
+    .status-seg-btn {
+      flex: 1; min-width: 72px; padding: 8px 4px; border-radius: 8px;
+      font-size: 12px; font-weight: 500; text-align: center;
+      background: rgba(255,255,255,0.06); border: none; cursor: pointer;
+      color: var(--muted); transition: background 0.14s, color 0.14s; white-space: nowrap;
+    }
+    .status-seg-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+    .status-seg-btn.seg-active { background: #0071e3; color: #fff; }
+    .status-seg-btn.seg-active.s-done { background: #34c759; }
+    .status-seg-btn.seg-active.s-blocked { background: #ff3b30; }
+    .status-seg-btn.seg-active.s-review { background: #ff9500; }
+    .status-seg-btn.seg-active.s-todo { background: #3a3a3c; color: var(--text); }
+
+    /* ── Completed page ─────────────────────────────────────────── */
+    .completed-stats {
+      display: flex; gap: 12px; margin-bottom: 24px;
+    }
+    .completed-stat {
+      background: rgba(255,255,255,0.04); border: 0.5px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 16px 22px; min-width: 140px;
+    }
+    .completed-stat-label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .completed-stat-value { font-size: 28px; font-weight: 700; color: #34c759; }
+    .restore-btn {
+      font-size: 12px; color: var(--blue);
+      background: rgba(0,113,227,0.1); border: none; cursor: pointer;
+      padding: 4px 12px; border-radius: 6px; white-space: nowrap;
+      transition: background 0.12s;
+    }
+    .restore-btn:hover { background: rgba(0,113,227,0.2); }
+    .restore-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    tr.completed-row td { opacity: 0.65; }
+    tr.completed-row .td-task-done { text-decoration: line-through; color: var(--muted); }
+
+    /* ── Resource doc icon (kanban) ─────────────────────────────── */
+    .kb-res-icon { font-size: 11px; opacity: 0.55; margin-left: auto; }
+
+    /* ── Reminder pills ─────────────────────────────────────────── */
+    .rem-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .rem-pill {
+      font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: 100px;
+      border: none; cursor: pointer; font-family: var(--font);
+      background: rgba(255,255,255,.08); color: var(--muted);
+      transition: background 0.1s, color 0.1s;
+    }
+    .rem-pill:hover { background: rgba(255,255,255,.14); color: var(--text); }
+    .reminder-active-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 12.5px; font-weight: 500;
+      color: var(--orange); background: rgba(255,149,0,.12);
+      border: 1px solid rgba(255,149,0,.25); border-radius: 100px;
+      padding: 5px 14px;
+    }
+    .reminder-cancel-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--orange); font-size: 15px; line-height: 1;
+      padding: 0 0 0 2px; font-family: var(--font);
+    }
+    .reminder-cancel-btn:hover { color: var(--red); }
+
+    /* ── People picker ──────────────────────────────────────────── */
+    .people-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+    .person-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 5px 10px 5px 5px; border-radius: 20px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      cursor: pointer; font-size: 13px; color: var(--text);
+      font-family: var(--font);
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .person-pill:hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.07); }
+    .person-pill.pp-selected { border-color: #0071e3; background: rgba(0,113,227,0.12); }
+    .pp-avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: 9px; font-weight: 700; color: white; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pp-check { color: #0071e3; font-size: 11px; line-height: 1; font-weight: 700; }
+
+    /* ── Avatar stack ────────────────────────────────────────────── */
+    .av-stack { display: flex; align-items: center; }
+    .av-stack .av {
+      width: 22px; height: 22px; border-radius: 50%;
+      font-size: 8px; font-weight: 700; color: white;
+      display: flex; align-items: center; justify-content: center;
+      border: 1.5px solid var(--bg); margin-left: -5px; flex-shrink: 0;
+    }
+    .av-stack .av:first-child { margin-left: 0; }
+    .av-overflow { background: rgba(255,255,255,0.18) !important; color: var(--muted) !important; }
+
+    /* ── Panel tabs ──────────────────────────────────────────────── */
+    .panel-tabs { display: flex; gap: 2px; margin-bottom: 12px; }
+    .panel-tab {
+      font-size: 13px; color: var(--muted); background: none;
+      border: none; cursor: pointer; padding: 5px 10px; border-radius: 100px;
+      display: inline-flex; align-items: center; gap: 5px; font-family: var(--font);
+      transition: background 0.1s, color 0.1s;
+    }
+    .panel-tab.active { background: rgba(255,255,255,.12); color: var(--text); font-weight: 500; }
+    .panel-tab:hover:not(.active) { background: rgba(255,255,255,.06); color: rgba(255,255,255,.7); }
+    .tab-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+
+    /* ── Inline task resources ───────────────────────────────────── */
+    .res-item-card {
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+      padding: 12px; margin-bottom: 10px; background: rgba(255,255,255,.02);
+    }
+    .del-res-btn {
+      font-size: 11px; color: var(--red); background: none; border: none;
+      cursor: pointer; padding: 2px 4px; border-radius: 4px; flex-shrink: 0;
+      transition: background 0.1s;
+    }
+    .del-res-btn:hover { background: rgba(255,59,48,.12); }
+    .add-res-btn {
+      font-size: 12.5px; color: var(--blue);
+      background: rgba(10,132,255,.10); border: 1px solid rgba(10,132,255,.20);
+      border-radius: 8px; padding: 6px 12px; cursor: pointer;
+      font-family: var(--font); transition: background 0.1s; margin-top: 4px;
+    }
+    .add-res-btn:hover { background: rgba(10,132,255,.18); }
+
+    /* ── Panel save button ──────────────────────────────────────── */
+    .panel-save-btn {
+      display: block; width: 100%; height: 40px;
+      margin-top: 6px;
+      background: var(--blue); color: #fff;
+      border: none; border-radius: 10px;
+      font-family: var(--font); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.1s, background 0.25s;
+    }
+    .panel-save-btn:hover { opacity: 0.85; }
+    .panel-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -676,13 +913,20 @@
         </svg>
         Performance
       </div>
-      <div class="nav-item" data-page="sops" onclick="navigate('sops')">
+      <div class="nav-item" data-page="resources" onclick="navigate('resources')">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/>
           <path d="M10 1.5v3.5h3.5"/>
           <path d="M6.5 7.5h3M6.5 10h4.5"/>
         </svg>
-        SOPs
+        Resources
+      </div>
+      <div class="nav-item" data-page="completed" onclick="navigate('completed')">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="8" cy="8" r="6.5"/>
+          <path d="M5 8l2 2 4-4"/>
+        </svg>
+        Completed
       </div>
     </div>
 
@@ -718,9 +962,25 @@
   const state = {
     page: 'dashboard',
     tasks: [],
+    archive: [],
+    resources: [],
+    tasksMeta: {}, // { taskId: { notes, sop, sopLink, resources, assignees } }
     perf: { members: [], topPerformer: null, generatedAt: null },
     filter: { status: 'All', search: '', category: '' },
+    viewMode: 'table',
+    workspaceUsers: [],
   };
+
+  const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
+
+  const INTERVAL_LABELS = {
+    '10min': '10 min', '30min': '30 min',
+    '1hr': '1 hr', '2hr': '2 hr', '4hr': '4 hr', '6hr': '6 hr', '8hr': '8 hr',
+  };
+  const REMINDER_OPTIONS = [
+    ['10min','10 min'],['30min','30 min'],['1hr','1 hr'],
+    ['2hr','2 hr'],['4hr','4 hr'],['6hr','6 hr'],['8hr','8 hr'],
+  ];
 
   // ── Utils ──────────────────────────────────────────────────────────────────
   function esc(s) {
@@ -775,6 +1035,61 @@
     return `<div class="avatar" style="width:${size}px;height:${size}px;background:${c};font-size:${fs}px">${esc(initials(name||'?'))}</div>`;
   }
 
+  // Overlapping avatar stack for multi-assignee display
+  function avatarStackHtml(names, size = 22) {
+    if (!names || names.length === 0) {
+      return `<div class="td-assignee">${avatarHtml('?', size)}<span style="font-size:13px;color:var(--muted)">Unassigned</span></div>`;
+    }
+    const shown = names.slice(0, 3);
+    const overflow = names.length - 3;
+    const fs = Math.floor(size * 0.38);
+    return `<div class="av-stack" title="${esc(names.join(', '))}">
+      ${shown.map(n => `<div class="av" style="width:${size}px;height:${size}px;background:${avatarColor(n)};font-size:${fs}px">${esc(initials(n))}</div>`).join('')}
+      ${overflow > 0 ? `<div class="av av-overflow" style="width:${size}px;height:${size}px;font-size:${fs}px">+${overflow}</div>` : ''}
+    </div>`;
+  }
+
+  // People picker HTML (multi-select pills)
+  function peoplePicker(selectedNames = [], pickerId = 'pp', taskId = null) {
+    const taskArg = taskId ? `,'${esc(taskId)}'` : '';
+    return `<div class="people-picker" id="${esc(pickerId)}">
+      ${TEAM.map(name => {
+        const sel = selectedNames.includes(name);
+        const c = avatarColor(name);
+        return `<button type="button" class="person-pill${sel ? ' pp-selected' : ''}"
+          onclick="togglePersonPill('${esc(pickerId)}','${esc(name)}'${taskArg})"
+          data-name="${esc(name)}">
+          <span class="pp-avatar" style="background:${c}">${esc(initials(name))}</span>
+          ${esc(name)}${sel ? '<span class="pp-check">✓</span>' : ''}
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function togglePersonPill(pickerId, name, taskId = null) {
+    const container = document.getElementById(pickerId);
+    if (!container) return;
+    const pill = Array.from(container.querySelectorAll('.person-pill')).find(p => p.dataset.name === name);
+    if (!pill) return;
+    const isSelected = pill.classList.toggle('pp-selected');
+    let check = pill.querySelector('.pp-check');
+    if (isSelected && !check) {
+      check = document.createElement('span');
+      check.className = 'pp-check';
+      check.textContent = '✓';
+      pill.appendChild(check);
+    } else if (!isSelected && check) {
+      check.remove();
+    }
+    if (taskId) scheduleMetaSave(taskId);
+  }
+
+  function getPickerSelections(pickerId) {
+    const container = document.getElementById(pickerId);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.person-pill.pp-selected')).map(p => p.dataset.name);
+  }
+
   function catPill(cat) {
     if (!cat) return '';
     const cls = {Ads:'pill-ads',Fulfillment:'pill-fulfillment',Creative:'pill-creative',Finance:'pill-finance',Operations:'pill-operations'}[cat] || '';
@@ -788,9 +1103,16 @@
   }
 
   function prioHtml(p) {
-    if (!p) return '';
-    const cls = {High:'p-high',Medium:'p-medium',Low:'p-low'}[p] || '';
-    return `<div class="p-dot ${cls}" title="${esc(p)}"></div>`;
+    if (!p) return `<span style="color:var(--muted)">—</span>`;
+    const lower = p.toLowerCase();
+    const cls = lower.includes('high') ? 'p-high' : lower.includes('medium') ? 'p-medium' : lower.includes('low') ? 'p-low' : '';
+    const label = p.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim() || p;
+    return `<div style="display:flex;align-items:center;gap:6px"><div class="p-dot ${cls}"></div><span style="font-size:13px;color:var(--text)">${esc(label)}</span></div>`;
+  }
+
+  function fmtDateTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function dueDateHtml(d) {
@@ -804,12 +1126,18 @@
   // ── Data fetching ──────────────────────────────────────────────────────────
   async function fetchAll() {
     try {
-      const [tr, pr] = await Promise.all([
+      const [tr, pr, ar, rr, mr] = await Promise.all([
         fetch('/tasks').then(r => r.ok ? r.json() : null).catch(() => null),
         fetch('/performance').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/archive').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/resources').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/tasks-meta').then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
-      if (tr?.tasks) state.tasks = tr.tasks;
+      if (tr?.tasks) state.tasks = tr.tasks.filter(t => t.status !== 'Done');
       if (pr?.members) state.perf = pr;
+      if (ar?.tasks) state.archive = ar.tasks;
+      if (rr?.resources) state.resources = rr.resources;
+      if (mr?.meta) state.tasksMeta = mr.meta;
       flashDot();
     } catch (e) {
       console.warn('[taskr] fetch error:', e.message);
@@ -838,13 +1166,39 @@
   }
 
   // ── Panel ──────────────────────────────────────────────────────────────────
-  function openPanel(taskId) {
+  let panelTaskId = null;
+  let panelActiveTab = 'notes';
+  let metaSaveTimer = null;
+
+  async function openPanel(taskId, focusField = null) {
+    panelTaskId = taskId;
+    panelActiveTab = 'notes';
+    clearTimeout(metaSaveTimer);
     const task = state.tasks.find(t => t.id === taskId);
     if (!task) return;
+
     document.getElementById('panelTitle').textContent = task.name;
-    document.getElementById('panelBody').innerHTML = panelContent(task);
+    document.getElementById('panelBody').innerHTML = '<div class="empty" style="padding:32px"><div class="empty-icon">⏳</div>Loading…</div>';
     document.getElementById('overlay').classList.add('show');
     document.getElementById('panel').classList.add('open');
+
+    const [ur, rr] = await Promise.all([
+      fetch('/users').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/reminders').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]);
+    if (panelTaskId !== taskId) return; // panel was reopened for a different task
+    const users = ur?.users || [];
+    state.workspaceUsers = users;
+    const activeReminder = (rr?.reminders || []).find(r => r.taskId === taskId) || null;
+
+    document.getElementById('panelBody').innerHTML = panelContent(task, users, activeReminder);
+
+    if (focusField) {
+      setTimeout(() => {
+        const el = document.getElementById(`edit_${focusField}`);
+        if (el) { el.focus(); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }, 60);
+    }
   }
 
   function closePanel() {
@@ -852,46 +1206,125 @@
     document.getElementById('panel').classList.remove('open');
   }
 
-  function panelContent(t) {
-    const assignee = t.assignees?.[0] || 'Unassigned';
-    const sop = t.sop
-      ? `<a href="${esc(t.sop)}" target="_blank" rel="noopener" class="d-sop-link">🔗 Open SOP</a>`
-      : `<span class="no-sop-badge" style="font-size:12px;padding:3px 10px">No SOP — add one in Notion</span>`;
-    const edited = t.lastEdited ? new Date(t.lastEdited).toLocaleDateString(undefined, {month:'short',day:'numeric',year:'numeric'}) : '—';
+  function panelContent(t, users = [], activeReminder = null) {
+    const edited = t.lastEdited
+      ? new Date(t.lastEdited).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+      : '—';
+
+    const metaAssignees = (state.tasksMeta[t.id]?.assignees?.length)
+      ? state.tasksMeta[t.id].assignees
+      : (t.assignees || []);
+    const assigneeField = peoplePicker(metaAssignees, 'panel-pp', t.id);
+
+    const meta = state.tasksMeta[t.id] || { notes: '', sop: '', sopLink: '', resources: [] };
+    const hasNotes = !!(meta.notes?.trim());
+    const hasSop   = !!(meta.sop?.trim() || meta.sopLink?.trim());
+    const hasRes   = !!(meta.resources?.length);
+
+    const reminderSection = activeReminder
+      ? `<div class="reminder-active-pill">
+           ⏰ Reminding every ${INTERVAL_LABELS[activeReminder.intervalKey] || activeReminder.intervalKey}
+           <button type="button" class="reminder-cancel-btn" onclick="cancelReminderForTask('${esc(t.id)}')">×</button>
+         </div>`
+      : `<div class="rem-pills">
+           ${REMINDER_OPTIONS.map(([key, label]) =>
+             `<button type="button" class="rem-pill" onclick="setReminderForTask('${esc(t.id)}','${esc(t.name)}','${key}')">${label}</button>`
+           ).join('')}
+         </div>`;
+
     return `
-      <div class="d-section">
-        <div class="d-label">Status</div>
-        <div class="d-value">${statusPill(t.status)}</div>
+      <div class="form-field">
+        <label class="form-label" for="edit_name">Task Name</label>
+        <input id="edit_name" class="form-input" type="text" value="${esc(t.name)}" placeholder="Task name">
       </div>
-      <div class="d-section">
-        <div class="d-label">Assignee</div>
-        <div class="d-value" style="display:flex;align-items:center;gap:8px">
-          ${avatarHtml(assignee, 26)}
-          <span>${esc(assignee)}</span>
+      <div class="form-field">
+        <div class="form-label">Status</div>
+        <input type="hidden" id="edit_status" value="${esc(t.status || '')}">
+        <div class="status-seg">
+          ${[['To do','s-todo'],['In progress','s-progress'],['In review','s-review'],['Done','s-done'],['Blocked','s-blocked']].map(([s,cls]) =>
+            `<button type="button" class="status-seg-btn ${cls}${t.status === s ? ' seg-active' : ''}" data-s="${esc(s)}" onclick="panelSetStatus('${esc(s)}')">${s}</button>`
+          ).join('')}
         </div>
       </div>
-      <div class="d-section">
-        <div class="d-label">Due Date</div>
-        <div class="d-value">${dueDateHtml(t.dueDate)}</div>
+      <div class="form-field">
+        <label class="form-label">Assignee</label>
+        ${assigneeField}
       </div>
-      <div class="d-section">
-        <div class="d-label">Priority</div>
-        <div class="d-value" style="display:flex;align-items:center;gap:7px">
-          ${prioHtml(t.priority)}
-          <span>${esc(t.priority || '—')}</span>
+      <div class="form-field">
+        <label class="form-label" for="edit_dueDate">Due Date</label>
+        <input id="edit_dueDate" class="form-input" type="date" value="${esc(t.dueDate || '')}">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="edit_priority">Priority</label>
+        <select id="edit_priority" class="form-input">
+          <option value="">—</option>
+          ${['🔴 High','🟡 Medium','🟢 Low'].map(p => {
+            const label = p.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim();
+            return `<option value="${esc(p)}"${t.priority === p ? ' selected' : ''}>${label}</option>`;
+          }).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="edit_category">Category</label>
+        <select id="edit_category" class="form-input">
+          <option value="">—</option>
+          ${['Ads','Fulfillment','Creative','Finance','Operations','Marketing','Accounting'].map(c =>
+            `<option value="${c}"${t.category === c ? ' selected' : ''}>${c}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <div class="form-label">Set Reminder</div>
+        ${reminderSection}
+      </div>
+      <div class="form-field">
+        <div class="form-label">Last Edited</div>
+        <div style="font-size:12.5px;color:var(--muted)">${esc(edited)}</div>
+      </div>
+      <button type="button" id="saveBtn" class="panel-save-btn" onclick="saveTask()">Save</button>
+      <div id="saveError" style="display:none;margin-top:8px" class="form-error"></div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:16px;margin-top:16px">
+        <div class="panel-tabs">
+          ${['notes','sop','resources'].map(tab => {
+            const hasDot = tab === 'notes' ? hasNotes : tab === 'sop' ? hasSop : hasRes;
+            return `<button class="panel-tab${panelActiveTab === tab ? ' active' : ''}" data-tab="${tab}" onclick="switchTab('${tab}')">
+              ${tab.charAt(0).toUpperCase() + tab.slice(1)}${hasDot ? '<span class="tab-dot"></span>' : ''}
+            </button>`;
+          }).join('')}
         </div>
-      </div>
-      <div class="d-section">
-        <div class="d-label">Category</div>
-        <div class="d-value">${catPill(t.category) || '—'}</div>
-      </div>
-      <div class="d-section">
-        <div class="d-label">SOP</div>
-        <div class="d-value">${sop}</div>
-      </div>
-      <div class="d-section">
-        <div class="d-label">Last Edited</div>
-        <div class="d-value" style="color:var(--muted);font-size:13px">${esc(edited)}</div>
+
+        <div class="tab-panel" data-panel="notes" style="display:${panelActiveTab==='notes'?'block':'none'}">
+          <textarea id="meta_notes" class="form-input res-textarea" style="min-height:120px"
+            placeholder="Add notes, context, or instructions..."
+            oninput="scheduleMetaSave('${esc(t.id)}')">${esc(meta.notes || '')}</textarea>
+        </div>
+
+        <div class="tab-panel" data-panel="sop" style="display:${panelActiveTab==='sop'?'block':'none'}">
+          <textarea id="meta_sop" class="form-input res-textarea" style="min-height:120px;margin-bottom:8px"
+            placeholder="Paste your SOP steps here..."
+            oninput="scheduleMetaSave('${esc(t.id)}')">${esc(meta.sop || '')}</textarea>
+          <input id="meta_sopLink" class="form-input" type="url"
+            value="${esc(meta.sopLink || '')}" placeholder="https://..."
+            oninput="scheduleMetaSave('${esc(t.id)}')">
+        </div>
+
+        <div class="tab-panel" data-panel="resources" style="display:${panelActiveTab==='resources'?'block':'none'}">
+          <div id="meta-resources-list">
+            ${(meta.resources || []).map(r => `
+              <div class="res-item-card meta-res-card" data-res-id="${esc(r.id)}">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                  <input class="form-input meta-res-title" type="text" value="${esc(r.title)}"
+                    placeholder="Resource title" style="flex:1;font-size:13px;font-weight:500"
+                    oninput="scheduleMetaSave('${esc(t.id)}')">
+                  <button class="del-res-btn" onclick="deleteMetaResource(this,'${esc(t.id)}')">✕ Remove</button>
+                </div>
+                <textarea class="form-input res-textarea meta-res-content" style="min-height:80px"
+                  placeholder="Content…" oninput="scheduleMetaSave('${esc(t.id)}')">${esc(r.content || '')}</textarea>
+              </div>`).join('')}
+          </div>
+          <button type="button" class="add-res-btn" onclick="addMetaResource('${esc(t.id)}')">+ Add resource</button>
+        </div>
       </div>
     `;
   }
@@ -984,12 +1417,16 @@
   }
 
   function renderTasks() {
+    if (state.viewMode === 'board') return renderBoard();
     const { status, search, category } = state.filter;
-    const STATUSES = ['All','To do','In progress','In review','Done'];
+    const ACTIVE_STATUSES = ['All','To do','In progress','In review','Blocked'];
     const CATS = ['Ads','Fulfillment','Creative','Finance','Operations'];
 
-    let tasks = state.tasks.filter(t => t.name?.trim());
-    if (status !== 'All') tasks = tasks.filter(t => t.status === status);
+    // Done tasks are in the Completed page — never shown here
+    let tasks = state.tasks.filter(t => t.name?.trim() && t.status !== 'Done');
+    if (status !== 'All') {
+      tasks = tasks.filter(t => t.status === status);
+    }
     if (search) {
       const q = search.toLowerCase();
       tasks = tasks.filter(t =>
@@ -999,19 +1436,19 @@
     }
     if (category) tasks = tasks.filter(t => t.category === category);
 
-    const sopCell = t => t.sop
-      ? `<a href="${esc(t.sop)}" target="_blank" rel="noopener" class="sop-link-icon" title="${esc(t.sop)}" onclick="event.stopPropagation()">🔗</a>`
-      : `<span class="sop-dash">—</span>`;
-
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
         <div class="page-title" style="margin-bottom:0">Tasks</div>
-        <button class="new-task-btn" onclick="openCreatePanel()">+ New Task</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${viewToggleHtml()}
+          <button class="new-task-btn" onclick="openCreatePanel()">+ New Task</button>
+        </div>
       </div>
       <div class="filter-bar">
-        ${STATUSES.map(s =>
+        ${ACTIVE_STATUSES.map(s =>
           `<button class="filter-tab${s === status ? ' active' : ''}" onclick="setFilter('status','${s}')">${s}</button>`
         ).join('')}
+        <button class="filter-tab" style="color:var(--muted);margin-left:auto" onclick="navigate('completed')">✓ Completed →</button>
       </div>
       <div class="search-row">
         <input class="search-input" type="text" placeholder="Search tasks or assignees…"
@@ -1026,20 +1463,27 @@
           ? '<div class="empty"><div class="empty-icon">🔍</div>No tasks match your filters</div>'
           : `<table>
             <thead><tr>
+              <th class="th-cb"></th>
               <th>Task</th><th>Assignee</th><th>Category</th>
-              <th>Priority</th><th>Due Date</th><th>Status</th><th>SOP</th>
+              <th>Priority</th><th>Due Date</th><th>Status</th>
             </tr></thead>
             <tbody>
               ${tasks.map(t => {
-                const a = t.assignees?.[0] || 'Unassigned';
-                return `<tr onclick="openPanel('${esc(t.id)}')">
+                const assignees = state.tasksMeta[t.id]?.assignees?.length ? state.tasksMeta[t.id].assignees : (t.assignees || []);
+                return `<tr data-id="${esc(t.id)}" onclick="openPanel('${esc(t.id)}')">
+                  <td class="td-cb" onclick="event.stopPropagation()">
+                    <button class="task-cb" onclick="toggleDone('${esc(t.id)}')" aria-label="Mark as done">
+                      <svg class="cb-check" viewBox="0 0 11 9" fill="none">
+                        <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </td>
                   <td class="td-task">${esc(t.name)}</td>
-                  <td><div class="td-assignee">${avatarHtml(a,24)}<span style="font-size:13px">${esc(firstName(a))}</span></div></td>
+                  <td>${assignees.length ? avatarStackHtml(assignees, 24) : `<div class="td-assignee"><span style="font-size:13px;color:var(--muted)">Unassigned</span></div>`}</td>
                   <td>${catPill(t.category) || `<span style="color:var(--muted)">—</span>`}</td>
-                  <td><div style="display:flex;align-items:center;gap:6px">${prioHtml(t.priority)}<span style="font-size:13px;color:var(--muted)">${esc(t.priority||'—')}</span></div></td>
+                  <td>${prioHtml(t.priority)}</td>
                   <td>${dueDateHtml(t.dueDate)}</td>
-                  <td>${statusPill(t.status)}</td>
-                  <td>${sopCell(t)}</td>
+                  <td class="td-status">${statusPill(t.status)}</td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -1104,37 +1548,30 @@
         </div>` : ''}`;
   }
 
-  function renderSOPs() {
-    const CATS = ['Ads','Fulfillment','Creative','Finance','Operations'];
-
-    const cards = CATS.map(cat => {
-      const tasks = state.tasks.filter(t => t.category === cat);
-      if (tasks.length === 0) return '';
-      return `
-        <div class="sop-card">
-          <div class="sop-card-head">
-            ${catPill(cat)}
-            <span class="sop-card-count">${tasks.length} task${tasks.length!==1?'s':''}</span>
-          </div>
-          ${tasks.map(t => `
-            <div class="sop-item">
-              <span class="sop-item-name">${esc(t.name)}</span>
-              ${t.sop
-                ? `<a href="${esc(t.sop)}" target="_blank" rel="noopener" class="sop-task-link">🔗 SOP</a>`
-                : `<span class="no-sop-badge">Add SOP</span>`}
-            </div>`).join('')}
-        </div>`;
-    }).filter(Boolean);
-
+  function renderResources() {
+    const resources = state.resources;
     return `
-      <div class="page-title">SOPs</div>
-      <div class="sops-grid">
-        ${cards.length > 0 ? cards.join('') : '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">📄</div>No tasks found</div>'}
-      </div>`;
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <div class="page-title" style="margin-bottom:0">Resources</div>
+        <button class="new-task-btn" onclick="openNewResourcePanel()">+ New Resource</button>
+      </div>
+      ${resources.length === 0
+        ? '<div class="empty"><div class="empty-icon">📄</div>No resources yet — create one to link it to tasks</div>'
+        : `<div class="res-grid">
+            ${resources.map(r => `
+              <div class="res-card" onclick="openResourcePanel('${esc(r.id)}',null)">
+                <div class="res-card-title">${esc(r.title)}</div>
+                ${r.category ? `<div style="margin:4px 0 6px">${catPill(r.category)}</div>` : ''}
+                <div class="res-card-preview">${esc((r.content || '').slice(0, 120))}${(r.content||'').length > 120 ? '…' : ''}</div>
+                <div class="res-card-meta">
+                  <span class="res-card-date">${r.updatedAt ? fmtDate(r.updatedAt.slice(0,10)) : ''}</span>
+                </div>
+              </div>`).join('')}
+          </div>`}`;
   }
 
   // ── Create-task panel ──────────────────────────────────────────────────────
-  async function openCreatePanel() {
+  async function openCreatePanel(preStatus = '') {
     let users = [];
     try {
       const r = await fetch('/users');
@@ -1142,19 +1579,16 @@
     } catch (_) {}
 
     document.getElementById('panelTitle').textContent = 'New Task';
-    document.getElementById('panelBody').innerHTML = renderCreateForm(users);
+    document.getElementById('panelBody').innerHTML = renderCreateForm(users, preStatus);
     document.getElementById('overlay').classList.add('show');
     document.getElementById('panel').classList.add('open');
     document.getElementById('fieldName')?.focus();
   }
 
-  function renderCreateForm(users) {
-    const assigneeOpts = users.length
-      ? `<select name="assigneeId" id="fieldAssignee" class="form-input">
-           <option value="">Unassigned</option>
-           ${users.map(u => `<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('')}
-         </select>`
-      : `<div class="form-hint">Workspace users couldn't be loaded — set the assignee in Notion after creating.</div>`;
+  function renderCreateForm(users, preStatus = '') {
+    // Store workspace users for ID lookup on submit
+    state.workspaceUsers = users;
+    const assigneePicker = peoplePicker([], 'create-pp');
 
     return `
       <form id="createForm" onsubmit="submitNewTask(event)" autocomplete="off">
@@ -1164,8 +1598,8 @@
             placeholder="e.g. Review COGS sheet">
         </div>
         <div class="form-field">
-          <label class="form-label" for="fieldAssignee">Assignee</label>
-          ${assigneeOpts}
+          <label class="form-label">Assignee</label>
+          ${assigneePicker}
         </div>
         <div class="form-field">
           <label class="form-label" for="fieldDue">Due Date</label>
@@ -1174,19 +1608,18 @@
         <div class="form-field">
           <label class="form-label" for="fieldStatus">Status</label>
           <select id="fieldStatus" name="status" class="form-input">
-            <option value="To do" selected>To do</option>
-            <option value="In progress">In progress</option>
-            <option value="In review">In review</option>
-            <option value="Done">Done</option>
+            ${['To do','In progress','In review','Done','Blocked'].map(s =>
+              `<option value="${s}"${(preStatus || 'To do') === s ? ' selected' : ''}>${s}</option>`
+            ).join('')}
           </select>
         </div>
         <div class="form-field">
           <label class="form-label" for="fieldPriority">Priority</label>
           <select id="fieldPriority" name="priority" class="form-input">
             <option value="">—</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
+            <option value="🔴 High">High</option>
+            <option value="🟡 Medium">Medium</option>
+            <option value="🟢 Low">Low</option>
           </select>
         </div>
         <div class="form-field">
@@ -1199,11 +1632,6 @@
             <option value="Finance">Finance</option>
             <option value="Operations">Operations</option>
           </select>
-        </div>
-        <div class="form-field">
-          <label class="form-label" for="fieldSOP">SOP <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
-          <input id="fieldSOP" name="sop" class="form-input" type="url"
-            placeholder="https://…">
         </div>
         <button type="submit" class="submit-btn" id="createSubmitBtn">Create Task</button>
         <div id="createError" style="display:none" class="form-error"></div>
@@ -1219,6 +1647,16 @@
     const data = Object.fromEntries(new FormData(form));
     // Strip empty strings so the backend skips optional fields
     Object.keys(data).forEach(k => { if (!data[k]) delete data[k]; });
+
+    // Replace single assignee with multi-select picker
+    delete data.assigneeId;
+    delete data.assigneeName;
+    const selectedNames = getPickerSelections('create-pp');
+    const assigneeIds = selectedNames
+      .map(name => (state.workspaceUsers || []).find(u => u.name?.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(u.name?.toLowerCase())))
+      .filter(Boolean)
+      .map(u => u.id);
+    if (assigneeIds.length) data.assigneeIds = assigneeIds;
 
     btn.disabled = true;
     btn.textContent = 'Creating…';
@@ -1246,6 +1684,640 @@
     }
   }
 
+  // ── Toggle done / archive ──────────────────────────────────────────────────
+  async function toggleDone(taskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const completedAt = new Date().toISOString();
+    const archived = {
+      id: task.id, name: task.name,
+      assignee: task.assignees?.[0] || '',
+      category: task.category || '',
+      dueDate: task.dueDate || null,
+      completedAt, status: 'Done',
+    };
+
+    // Optimistic: remove from active list, add to archive
+    state.tasks = state.tasks.filter(t => t.id !== taskId);
+    state.archive.unshift(archived);
+    render();
+
+    try {
+      await Promise.all([
+        fetch(`/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Done' }) }),
+        fetch(`/archive/${taskId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(archived) }),
+      ]);
+    } catch (err) {
+      // Rollback
+      state.archive = state.archive.filter(t => t.id !== taskId);
+      state.tasks.unshift(task);
+      render();
+      console.error('[taskr] toggleDone failed:', err.message);
+    }
+  }
+
+  async function restoreTask(taskId) {
+    const archived = state.archive.find(t => t.id === taskId);
+    if (!archived) return;
+
+    const btn = document.getElementById(`restore-${taskId}`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Restoring…'; }
+
+    // Optimistic: remove from archive, add back to tasks
+    state.archive = state.archive.filter(t => t.id !== taskId);
+    state.tasks.unshift({
+      id: archived.id, name: archived.name,
+      assignees: archived.assignee ? [archived.assignee] : [],
+      category: archived.category || null,
+      dueDate: archived.dueDate || null,
+      status: 'To do', priority: null,
+      lastEdited: new Date().toISOString(),
+    });
+    render();
+
+    try {
+      await fetch(`/archive/${taskId}`, { method: 'DELETE' });
+    } catch (err) {
+      // Rollback
+      state.tasks = state.tasks.filter(t => t.id !== taskId);
+      state.archive.unshift(archived);
+      render();
+      console.error('[taskr] restoreTask failed:', err.message);
+    }
+  }
+
+  // ── Save task ──────────────────────────────────────────────────────────────
+  async function saveTask() {
+    const taskId = panelTaskId;
+    if (!taskId) return;
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const name      = document.getElementById('edit_name')?.value.trim();
+    const status    = document.getElementById('edit_status')?.value || null;
+    const dueDate   = document.getElementById('edit_dueDate')?.value || null;
+    const priority  = document.getElementById('edit_priority')?.value || null;
+    const category  = document.getElementById('edit_category')?.value || null;
+
+    // Map selected names to Notion user IDs where possible
+    const selectedNames = getPickerSelections('panel-pp');
+    const assigneeIds = selectedNames
+      .map(name => state.workspaceUsers?.find(u => u.name?.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(u.name?.toLowerCase())))
+      .filter(Boolean)
+      .map(u => u.id);
+
+    const body = { status, dueDate, priority, category, assigneeIds };
+    if (name) body.name = name;
+
+    const btn = document.getElementById('saveBtn');
+    const errEl = document.getElementById('saveError');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    if (errEl) errEl.style.display = 'none';
+
+    try {
+      const res = await fetch(`/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Save failed');
+
+      if (name) task.name = name;
+      if (status !== undefined) task.status = status;
+      if (dueDate !== undefined) task.dueDate = dueDate;
+      if (priority !== undefined) task.priority = priority;
+      if (category !== undefined) task.category = category;
+      task.assignees = selectedNames;
+
+      // Persist assignees in meta so table/kanban display stays in sync
+      if (!state.tasksMeta[taskId]) state.tasksMeta[taskId] = { notes: '', sop: '', sopLink: '', resources: [], assignees: [] };
+      state.tasksMeta[taskId].assignees = selectedNames;
+      fetch(`/tasks-meta/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignees: selectedNames }),
+      }).catch(() => {});
+
+      document.getElementById('panelTitle').textContent = task.name;
+      btn.textContent = '✓ Saved';
+      btn.style.background = '#34c759';
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = 'Save'; btn.style.background = ''; }, 2000);
+      render();
+    } catch (err) {
+      btn.textContent = 'Save';
+      btn.disabled = false;
+      if (errEl) { errEl.textContent = err.message; errEl.style.display = 'block'; }
+    }
+  }
+
+  // ── Resource panel ─────────────────────────────────────────────────────────
+  let panelResourceId = null;
+  let panelPrevTaskId = null;
+
+  function openResourcePanel(resourceId, prevTaskId) {
+    panelResourceId = resourceId;
+    panelPrevTaskId = prevTaskId || null;
+    const r = state.resources.find(x => x.id === resourceId);
+    if (!r) return;
+    document.getElementById('panelTitle').textContent = r.title;
+    document.getElementById('panelBody').innerHTML = resourcePanelContent(r, !!prevTaskId);
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('open');
+  }
+
+  function resourcePanelContent(r, showBack) {
+    return `
+      ${showBack ? `<button class="back-btn" onclick="backToTask()">← Back to task</button>` : ''}
+      <div class="form-field">
+        <label class="form-label" for="res_title">Title</label>
+        <input id="res_title" class="form-input" type="text" value="${esc(r.title)}" placeholder="Resource title">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="res_category">Category</label>
+        <select id="res_category" class="form-input">
+          <option value="">—</option>
+          ${['Ads','Fulfillment','Creative','Finance','Operations','Marketing','Accounting'].map(c =>
+            `<option value="${c}"${r.category === c ? ' selected' : ''}>${c}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="res_content">Content</label>
+        <textarea id="res_content" class="form-input res-textarea" placeholder="Write steps, notes, or reference info…">${esc(r.content || '')}</textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" id="saveResBtn" class="panel-save-btn" onclick="saveResource('${esc(r.id)}')" style="flex:1">Save</button>
+        <button type="button" class="delete-resource-btn" onclick="deleteResource('${esc(r.id)}')">Delete</button>
+      </div>
+      <div id="resError" style="display:none;margin-top:8px" class="form-error"></div>`;
+  }
+
+  function openNewResourcePanel() {
+    panelResourceId = null;
+    panelPrevTaskId = null;
+    document.getElementById('panelTitle').textContent = 'New Resource';
+    document.getElementById('panelBody').innerHTML = newResourceContent();
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('new_res_title')?.focus();
+  }
+
+  function newResourceContent() {
+    return `
+      <div class="form-field">
+        <label class="form-label" for="new_res_title">Title *</label>
+        <input id="new_res_title" class="form-input" type="text" placeholder="e.g. Ad Launch Checklist">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="new_res_category">Category</label>
+        <select id="new_res_category" class="form-input">
+          <option value="">—</option>
+          ${['Ads','Fulfillment','Creative','Finance','Operations','Marketing','Accounting'].map(c =>
+            `<option value="${c}">${c}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="new_res_content">Content</label>
+        <textarea id="new_res_content" class="form-input res-textarea" placeholder="Write steps, notes, or reference info…"></textarea>
+      </div>
+      <button type="button" id="createResBtn" class="panel-save-btn" style="margin-top:6px" onclick="createResource()">Create Resource</button>
+      <div id="newResError" style="display:none;margin-top:8px" class="form-error"></div>`;
+  }
+
+  function backToTask() {
+    if (panelPrevTaskId) openPanel(panelPrevTaskId);
+  }
+
+  async function createResource() {
+    const title = document.getElementById('new_res_title')?.value.trim();
+    const category = document.getElementById('new_res_category')?.value || '';
+    const content = document.getElementById('new_res_content')?.value || '';
+    const btn = document.getElementById('createResBtn');
+    const errEl = document.getElementById('newResError');
+    if (!title) { if (errEl) { errEl.textContent = 'Title is required'; errEl.style.display = 'block'; } return; }
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await fetch('/resources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, category }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to create');
+      state.resources.unshift(result.resource);
+      closePanel();
+      render();
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message; errEl.style.display = 'block'; }
+      btn.disabled = false; btn.textContent = 'Create Resource';
+    }
+  }
+
+  async function saveResource(id) {
+    const title = document.getElementById('res_title')?.value.trim();
+    const category = document.getElementById('res_category')?.value || '';
+    const content = document.getElementById('res_content')?.value || '';
+    const btn = document.getElementById('saveResBtn');
+    const errEl = document.getElementById('resError');
+    if (!title) { if (errEl) { errEl.textContent = 'Title is required'; errEl.style.display = 'block'; } return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`/resources/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, category }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      const r = state.resources.find(x => x.id === id);
+      if (r) { r.title = title; r.content = content; r.category = category; }
+      document.getElementById('panelTitle').textContent = title;
+      btn.textContent = '✓ Saved'; btn.style.background = '#34c759';
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = 'Save'; btn.style.background = ''; }, 2000);
+      render();
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message; errEl.style.display = 'block'; }
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
+  async function deleteResource(id) {
+    if (!confirm('Delete this resource? This cannot be undone.')) return;
+    try {
+      await fetch(`/resources/${id}`, { method: 'DELETE' });
+      state.resources = state.resources.filter(r => r.id !== id);
+      // Remove any task links pointing to this resource
+      Object.keys(state.tasksMeta).forEach(tid => {
+        if (state.tasksMeta[tid] === id) delete state.tasksMeta[tid];
+      });
+      closePanel();
+      render();
+    } catch (err) {
+      alert('Failed to delete resource');
+    }
+  }
+
+  // ── Panel tabs + meta auto-save ────────────────────────────────────────────
+  function switchTab(tab) {
+    panelActiveTab = tab;
+    document.querySelectorAll('.panel-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.tab === tab)
+    );
+    document.querySelectorAll('.tab-panel').forEach(p =>
+      p.style.display = (p.dataset.panel === tab) ? 'block' : 'none'
+    );
+  }
+
+  function getMetaFromPanel() {
+    const notes   = document.getElementById('meta_notes')?.value || '';
+    const sop     = document.getElementById('meta_sop')?.value || '';
+    const sopLink = document.getElementById('meta_sopLink')?.value || '';
+    const resources = Array.from(document.querySelectorAll('.meta-res-card')).map(card => ({
+      id:      card.dataset.resId,
+      title:   card.querySelector('.meta-res-title')?.value || '',
+      content: card.querySelector('.meta-res-content')?.value || '',
+    }));
+    const assignees = getPickerSelections('panel-pp');
+    return { notes, sop, sopLink, resources, assignees };
+  }
+
+  function scheduleMetaSave(taskId) {
+    clearTimeout(metaSaveTimer);
+    metaSaveTimer = setTimeout(() => saveTaskMeta(taskId), 1000);
+  }
+
+  async function saveTaskMeta(taskId) {
+    const meta = getMetaFromPanel();
+    try {
+      await fetch(`/tasks-meta/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(meta),
+      });
+      state.tasksMeta[taskId] = meta;
+      // Refresh dots without re-rendering the whole panel
+      const hasNotes = !!(meta.notes?.trim());
+      const hasSop   = !!(meta.sop?.trim() || meta.sopLink?.trim());
+      const hasRes   = !!(meta.resources?.length);
+      document.querySelectorAll('.panel-tab').forEach(btn => {
+        const tab = btn.dataset.tab;
+        const hasDot = tab==='notes' ? hasNotes : tab==='sop' ? hasSop : hasRes;
+        let dot = btn.querySelector('.tab-dot');
+        if (hasDot && !dot) {
+          dot = document.createElement('span');
+          dot.className = 'tab-dot';
+          btn.appendChild(dot);
+        } else if (!hasDot && dot) {
+          dot.remove();
+        }
+      });
+    } catch (err) {
+      console.error('[taskr] saveTaskMeta:', err.message);
+    }
+  }
+
+  function addMetaResource(taskId) {
+    const id = 'tr_' + Date.now().toString(36);
+    const list = document.getElementById('meta-resources-list');
+    if (!list) return;
+    const card = document.createElement('div');
+    card.className = 'res-item-card meta-res-card';
+    card.dataset.resId = id;
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <input class="form-input meta-res-title" type="text" placeholder="Resource title"
+          style="flex:1;font-size:13px;font-weight:500"
+          oninput="scheduleMetaSave('${esc(taskId)}')">
+        <button class="del-res-btn" onclick="deleteMetaResource(this,'${esc(taskId)}')">✕ Remove</button>
+      </div>
+      <textarea class="form-input res-textarea meta-res-content" style="min-height:80px"
+        placeholder="Content…" oninput="scheduleMetaSave('${esc(taskId)}')"></textarea>`;
+    list.appendChild(card);
+    card.querySelector('.meta-res-title')?.focus();
+    scheduleMetaSave(taskId);
+  }
+
+  function deleteMetaResource(btn, taskId) {
+    btn.closest('.meta-res-card')?.remove();
+    scheduleMetaSave(taskId);
+  }
+
+  async function setReminderForTask(taskId, taskName, intervalKey) {
+    const res = await fetch('/reminders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, taskName, intervalKey }),
+    });
+    if (res.ok) openPanel(taskId);
+  }
+
+  async function cancelReminderForTask(taskId) {
+    await fetch(`/reminders/${taskId}`, { method: 'DELETE' });
+    openPanel(taskId);
+  }
+
+  // ── View mode ──────────────────────────────────────────────────────────────
+  function setViewMode(mode) {
+    state.viewMode = mode;
+    render();
+  }
+
+  function viewToggleHtml() {
+    const t = state.viewMode === 'table';
+    return `<div class="view-toggle">
+      <button class="view-btn${t ? ' active' : ''}" onclick="setViewMode('table')" title="Table view">
+        <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <path d="M2 4h11M2 7.5h11M2 11h11"/>
+        </svg>
+      </button>
+      <button class="view-btn${!t ? ' active' : ''}" onclick="setViewMode('board')" title="Board view">
+        <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="1.5" y="1.5" width="4" height="12" rx="1.2"/>
+          <rect x="7.5" y="1.5" width="4" height="9" rx="1.2"/>
+          <rect x="7.5" y="12" width="4" height="1.5" rx="0.75" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+    </div>`;
+  }
+
+  // ── Kanban board ───────────────────────────────────────────────────────────
+  let kbMenuEl = null;
+
+  function kbShowMenu(taskId, event) {
+    event.stopPropagation();
+    if (kbMenuEl) { kbMenuEl.remove(); kbMenuEl = null; }
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    const STATUSES = ['To do', 'In progress', 'In review', 'Blocked', 'Done'];
+    const menu = document.createElement('div');
+    menu.className = 'kb-move-menu';
+    menu.innerHTML = STATUSES.map(s =>
+      `<button class="kb-move-item${s === task.status ? ' current' : ''}"
+         onclick="kbMoveTo('${taskId}','${s}');event.stopPropagation()">
+         ${esc(s)}${s === task.status ? ' ✓' : ''}
+       </button>`
+    ).join('');
+
+    document.body.appendChild(menu);
+    kbMenuEl = menu;
+
+    // Position using fixed coords so it escapes any overflow:hidden parent
+    const btn = event.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const menuH = STATUSES.length * 41;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    if (spaceBelow < menuH && rect.top > menuH) {
+      menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+    } else {
+      menu.style.top = (rect.bottom + 4) + 'px';
+    }
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+
+    setTimeout(() => {
+      document.addEventListener('click', function closeMenu() {
+        if (kbMenuEl) { kbMenuEl.remove(); kbMenuEl = null; }
+        document.removeEventListener('click', closeMenu);
+      });
+    }, 0);
+  }
+
+  async function kbMoveTo(taskId, newStatus) {
+    if (kbMenuEl) { kbMenuEl.remove(); kbMenuEl = null; }
+    if (newStatus === 'Done') { toggleDone(taskId); return; }
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+    const oldStatus = task.status;
+    task.status = newStatus;
+    render();
+    try {
+      const res = await fetch(`/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error('Failed');
+    } catch {
+      task.status = oldStatus;
+      render();
+    }
+  }
+
+  async function panelSetStatus(newStatus) {
+    if (newStatus === 'Done') {
+      await toggleDone(panelTaskId);
+      closePanel();
+      return;
+    }
+
+    document.querySelectorAll('.status-seg-btn').forEach(btn => {
+      btn.classList.toggle('seg-active', btn.dataset.s === newStatus);
+    });
+    const hidden = document.getElementById('edit_status');
+    if (hidden) hidden.value = newStatus;
+
+    const task = state.tasks.find(t => t.id === panelTaskId);
+    if (!task || task.status === newStatus) return;
+    const oldStatus = task.status;
+    task.status = newStatus;
+    render();
+
+    try {
+      await fetch(`/tasks/${panelTaskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch {
+      task.status = oldStatus;
+      if (hidden) hidden.value = oldStatus;
+      document.querySelectorAll('.status-seg-btn').forEach(btn => {
+        btn.classList.toggle('seg-active', btn.dataset.s === oldStatus);
+      });
+    }
+  }
+
+  function renderBoard() {
+    const COLS = ['No Status', 'To do', 'In progress', 'In review', 'Blocked'];
+    const today = todayStr();
+
+    let tasks = state.tasks.filter(t => t.name?.trim());
+    if (state.filter.search) {
+      const q = state.filter.search.toLowerCase();
+      tasks = tasks.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        (t.assignees||[]).some(a => a.toLowerCase().includes(q))
+      );
+    }
+    if (state.filter.category) tasks = tasks.filter(t => t.category === state.filter.category);
+
+    const byStatus = {};
+    COLS.forEach(c => byStatus[c] = []);
+    for (const t of tasks) {
+      const col = t.status || 'No Status';
+      (byStatus[col] || (byStatus['No Status'])).push(t);
+    }
+
+    const cardHtml = t => {
+      const assignees = state.tasksMeta[t.id]?.assignees?.length ? state.tasksMeta[t.id].assignees : (t.assignees || []);
+      const overdue = t.dueDate && t.dueDate < today && t.status !== 'Done';
+      const done = t.status === 'Done';
+      const pl = (t.priority || '').toLowerCase();
+      const prioCls = pl.includes('high') ? 'p-high' : pl.includes('medium') ? 'p-medium' : pl.includes('low') ? 'p-low' : '';
+      return `
+        <div class="kb-card${overdue ? ' overdue' : ''}${done ? ' kb-done' : ''}"
+             data-id="${esc(t.id)}"
+             onclick="openPanel('${esc(t.id)}')">
+          <div class="kb-card-top">
+            <span class="kb-card-name">${esc(t.name)}</span>
+            ${done
+              ? `<div class="kb-done-badge"><svg viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`
+              : (prioCls ? `<div class="p-dot ${prioCls}" title="${esc(t.priority||'')}"></div>` : '')}
+          </div>
+          <div class="kb-assignee-row">
+            ${assignees.length ? avatarStackHtml(assignees, 18) : avatarHtml('?', 18)}
+            ${assignees.length > 0 && assignees.length <= 2 ? `<span class="kb-assignee">${esc(assignees.map(n => firstName(n)).join(', '))}</span>` : ''}
+            ${(m => m && (m.notes?.trim() || m.sop?.trim() || m.resources?.length))(state.tasksMeta[t.id]) ? `<span class="kb-res-icon" title="Has notes/resources">📄</span>` : ''}
+          </div>
+          <div class="kb-meta-row">
+            ${t.category ? catPill(t.category) : ''}
+            ${t.dueDate ? `<span class="kb-due${overdue ? ' kb-overdue' : ''}">${esc(fmtDate(t.dueDate))}</span>` : ''}
+          </div>
+          <div class="kb-card-footer" onclick="event.stopPropagation()">
+            <button class="kb-move-btn" onclick="kbShowMenu('${esc(t.id)}',event)">Move to →</button>
+          </div>
+        </div>`;
+    };
+
+    const colHtml = col => {
+      const items = byStatus[col] || [];
+      const preStatus = col === 'No Status' ? 'To do' : col;
+      return `
+        <div class="kb-col">
+          <div class="kb-col-header">
+            <span class="kb-col-title">${esc(col)}</span>
+            <span class="kb-col-count">${items.length}</span>
+          </div>
+          <div class="kb-col-body">
+            ${items.length === 0
+              ? `<div class="kb-empty">No tasks</div>`
+              : items.map(cardHtml).join('')}
+          </div>
+          <div class="kb-col-footer">
+            <button class="kb-add-btn" onclick="openCreatePanel('${esc(preStatus)}')">+ Add task</button>
+          </div>
+        </div>`;
+    };
+
+    const { search, category } = state.filter;
+    const CATS = ['Ads','Fulfillment','Creative','Finance','Operations'];
+
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="page-title" style="margin-bottom:0">Tasks</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${viewToggleHtml()}
+          <button class="new-task-btn" onclick="openCreatePanel()">+ New Task</button>
+        </div>
+      </div>
+      <div class="search-row" style="margin-bottom:18px">
+        <input class="search-input" type="text" placeholder="Search tasks or assignees…"
+          value="${esc(search)}" oninput="setFilter('search',this.value)">
+        <select class="cat-select" onchange="setFilter('category',this.value)">
+          <option value="">All categories</option>
+          ${CATS.map(c => `<option value="${c}"${c === category ? ' selected' : ''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="kb-board">
+        ${COLS.map(colHtml).join('')}
+      </div>`;
+  }
+
+  function renderCompleted() {
+    const tasks = state.archive.slice().sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+    const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    const thisWeek = tasks.filter(t => new Date(t.completedAt) >= weekAgo).length;
+
+    return `
+      <div class="page-title">Completed</div>
+      <div class="completed-stats">
+        <div class="completed-stat">
+          <div class="completed-stat-label">Total Completed</div>
+          <div class="completed-stat-value">${tasks.length}</div>
+        </div>
+        <div class="completed-stat">
+          <div class="completed-stat-label">This Week</div>
+          <div class="completed-stat-value">${thisWeek}</div>
+        </div>
+      </div>
+      ${tasks.length === 0
+        ? '<div class="empty"><div class="empty-icon">🎉</div>No completed tasks yet — mark tasks done to see them here</div>'
+        : `<div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>Task</th><th>Assignee</th><th>Category</th><th>Due Date</th><th>Completed</th><th></th>
+              </tr></thead>
+              <tbody>
+                ${tasks.map(t => `
+                  <tr class="completed-row">
+                    <td class="td-task-done">${esc(t.name)}</td>
+                    <td><div class="td-assignee">${avatarHtml(t.assignee || '?', 24)}<span style="font-size:13px">${esc(firstName(t.assignee || 'Unassigned'))}</span></div></td>
+                    <td>${catPill(t.category) || `<span style="color:var(--muted)">—</span>`}</td>
+                    <td>${t.dueDate ? esc(fmtDate(t.dueDate)) : '<span style="color:var(--muted)">—</span>'}</td>
+                    <td style="font-size:12px;color:var(--muted)">${esc(fmtDateTime(t.completedAt))}</td>
+                    <td onclick="event.stopPropagation()">
+                      <button id="restore-${esc(t.id)}" class="restore-btn" onclick="restoreTask('${esc(t.id)}')">Restore</button>
+                    </td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`}`;
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   function render() {
     const main = document.getElementById('main');
@@ -1253,7 +2325,8 @@
       case 'dashboard':   main.innerHTML = renderDashboard();   break;
       case 'tasks':       main.innerHTML = renderTasks();       break;
       case 'performance': main.innerHTML = renderPerformance(); break;
-      case 'sops':        main.innerHTML = renderSOPs();        break;
+      case 'resources':   main.innerHTML = renderResources();   break;
+      case 'completed':   main.innerHTML = renderCompleted();   break;
     }
   }
 

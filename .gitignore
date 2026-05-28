@@ -1,2 +1,5 @@
 node_modules/
 .env
+data/archive.json
+data/resources.json
+data/tasks-meta.json

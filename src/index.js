@@ -7,6 +7,11 @@ const { startScheduler } = require('./scheduler');
 const { computePerformance } = require('./tally');
 const notion = require('./notion');
 const telegram = require('./telegram');
+const team = require('./team');
+const reminders = require('./reminders');
+const archive = require('./archive');
+const resources = require('./resources');
+const tasksMeta = require('./tasks-meta');
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
@@ -68,7 +73,6 @@ app.get('/tasks', async (req, res) => {
       status: notion.getStatus(page),
       priority: notion.getPriority(page),
       category: notion.getCategory(page),
-      sop: notion.getSOP(page),
       lastEdited: page.last_edited_time,
     }));
     res.json({ tasks, total: tasks.length });
@@ -80,12 +84,12 @@ app.get('/tasks', async (req, res) => {
 
 // Creates a new task in the Notion Tasks database
 app.post('/tasks', async (req, res) => {
-  const { name, assigneeId, dueDate, status, priority, category, sop } = req.body;
+  const { name, assigneeId, dueDate, status, priority, category } = req.body;
   if (!name?.trim()) {
     return res.status(400).json({ error: 'Task name is required' });
   }
   try {
-    const page = await notion.createTask({ name: name.trim(), assigneeId, dueDate, status, priority, category, sop });
+    const page = await notion.createTask({ name: name.trim(), assigneeId, dueDate, status, priority, category });
     const task = {
       id: page.id,
       name: notion.getTaskName(page),
@@ -94,7 +98,6 @@ app.post('/tasks', async (req, res) => {
       status: notion.getStatus(page),
       priority: notion.getPriority(page),
       category: notion.getCategory(page),
-      sop: notion.getSOP(page),
       lastEdited: page.last_edited_time,
     };
     res.status(201).json({ task });
@@ -129,6 +132,151 @@ app.get('/sop', async (req, res) => {
   } catch (err) {
     console.error('[/sop]', err.message);
     return res.status(500).json({ error: 'Failed to fetch task from Notion' });
+  }
+});
+
+// Updates any fields of a task in Notion
+app.patch('/tasks/:id', async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
+  const properties = {};
+
+  if ('status' in body && body.status)
+    properties['Status'] = { status: { name: body.status } };
+  if ('name' in body && body.name?.trim())
+    properties['Task name'] = { title: [{ text: { content: body.name.trim() } }] };
+  if ('dueDate' in body)
+    properties['Due date'] = body.dueDate ? { date: { start: body.dueDate } } : { date: null };
+  if ('priority' in body)
+    properties['Priority'] = body.priority ? { select: { name: body.priority } } : { select: null };
+  if ('category' in body)
+    properties['Department'] = body.category ? { select: { name: body.category } } : { select: null };
+  if ('assigneeIds' in body)
+    properties['Assigned to'] = body.assigneeIds?.length
+      ? { people: body.assigneeIds.map(id => ({ object: 'user', id })) }
+      : { people: [] };
+  else if ('assigneeId' in body)
+    properties['Assigned to'] = body.assigneeId
+      ? { people: [{ object: 'user', id: body.assigneeId }] }
+      : { people: [] };
+
+  if (Object.keys(properties).length === 0)
+    return res.status(400).json({ error: 'No fields to update' });
+
+  try {
+    await notion.updatePage(id, properties);
+    if (body.status === 'Done') reminders.cancel(id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[PATCH /tasks/:id]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reminder endpoints
+app.get('/reminders', (req, res) => {
+  res.json({ reminders: reminders.getAll() });
+});
+
+app.post('/reminders', (req, res) => {
+  const { taskId, taskName, intervalKey } = req.body;
+  if (!taskId || !intervalKey) return res.status(400).json({ error: 'taskId and intervalKey required' });
+  reminders.set(taskId, taskName || taskId, intervalKey);
+  res.json({ ok: true, reminder: reminders.get(taskId) });
+});
+
+app.delete('/reminders/:taskId', (req, res) => {
+  reminders.cancel(req.params.taskId);
+  res.json({ ok: true });
+});
+
+// ── Resources endpoints ──────────────────────────────────────────────────────
+
+app.get('/resources', (req, res) => {
+  res.json({ resources: resources.getAll() });
+});
+
+app.post('/resources', (req, res) => {
+  const { title, content, category } = req.body;
+  if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+  const resource = resources.create({ title: title.trim(), content: content || '', category: category || '' });
+  res.status(201).json({ resource });
+});
+
+app.patch('/resources/:id', (req, res) => {
+  const { id } = req.params;
+  const updated = resources.update(id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Resource not found' });
+  res.json({ resource: updated });
+});
+
+app.delete('/resources/:id', (req, res) => {
+  const removed = resources.remove(req.params.id);
+  if (!removed) return res.status(404).json({ error: 'Resource not found' });
+  res.json({ ok: true });
+});
+
+// ── Tasks-meta endpoints ─────────────────────────────────────────────────────
+
+app.get('/tasks-meta', (req, res) => {
+  res.json({ meta: tasksMeta.getAll() });
+});
+
+app.get('/tasks-meta/:taskId', (req, res) => {
+  const meta = tasksMeta.getTask(req.params.taskId);
+  res.json({ meta: meta || { notes: '', sop: '', sopLink: '', resources: [] } });
+});
+
+app.patch('/tasks-meta/:taskId', (req, res) => {
+  const meta = tasksMeta.updateTask(req.params.taskId, req.body);
+  res.json({ ok: true, meta });
+});
+
+app.post('/tasks-meta/:taskId/resources', (req, res) => {
+  const r = tasksMeta.addResource(req.params.taskId, req.body);
+  res.status(201).json({ resource: r });
+});
+
+app.patch('/tasks-meta/:taskId/resources/:resId', (req, res) => {
+  const r = tasksMeta.updateResource(req.params.taskId, req.params.resId, req.body);
+  if (!r) return res.status(404).json({ error: 'Resource not found' });
+  res.json({ resource: r });
+});
+
+app.delete('/tasks-meta/:taskId/resources/:resId', (req, res) => {
+  const ok = tasksMeta.deleteResource(req.params.taskId, req.params.resId);
+  if (!ok) return res.status(404).json({ error: 'Resource not found' });
+  res.json({ ok: true });
+});
+
+// Returns team members for the assignee picker
+app.get('/team', (req, res) => {
+  res.json({ team: team.getAll() });
+});
+
+// ── Archive endpoints ────────────────────────────────────────────────────────
+
+app.get('/archive', (req, res) => {
+  res.json({ tasks: archive.getAll() });
+});
+
+app.post('/archive/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, assignee, category, dueDate, completedAt } = req.body;
+  archive.add({ id, name: name || id, assignee: assignee || '', category: category || '', dueDate: dueDate || null, completedAt: completedAt || new Date().toISOString(), status: 'Done' });
+  reminders.cancel(id);
+  res.json({ ok: true });
+});
+
+app.delete('/archive/:id', async (req, res) => {
+  const { id } = req.params;
+  archive.remove(id);
+  try {
+    await notion.updatePage(id, { 'Status': { status: { name: 'To do' } } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[DELETE /archive/:id]', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -206,6 +354,9 @@ async function handleBotCommand(update) {
 async function start() {
   const port = process.env.PORT || 3000;
 
+  archive.load();
+  resources.load();
+  tasksMeta.load();
   startScheduler();
 
   // Long-poll Telegram in the background — does not block the HTTP server

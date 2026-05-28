@@ -78,7 +78,8 @@ async function createTask({ name, assigneeId, dueDate, status, priority, categor
   if (category)   properties['Department'] = { select: { name: category } };
   if (dueDate)    properties['Due date'] = { date: { start: dueDate } };
   if (sop?.trim()) properties['SOP']     = { url: sop.trim() };
-  if (assigneeId) properties['Assigned to'] = { people: [{ object: 'user', id: assigneeId }] };
+  if (assigneeIds?.length) properties['Assigned to'] = { people: assigneeIds.map(id => ({ object: 'user', id })) };
+  else if (assigneeId) properties['Assigned to'] = { people: [{ object: 'user', id: assigneeId }] };
 
   return notionRequest('/pages', 'POST', {
     parent: { database_id: process.env.NOTION_TASKS_DB_ID },
@@ -136,6 +137,12 @@ function getAssigneeName(page) {
   return people[0].name ?? null;
 }
 
+function getAssigneeNames(page) {
+  const people = page.properties?.['Assigned to']?.people;
+  if (!people || people.length === 0) return [];
+  return people.map(u => u.name || 'Unknown');
+}
+
 function getDueDate(page) {
   return page.properties?.['Due date']?.date?.start ?? null;
 }
@@ -176,6 +183,7 @@ module.exports = {
   getTaskName,
   getMemberName,
   getAssigneeName,
+  getAssigneeNames,
   getDueDate,
   getStatus,
   getPriority,

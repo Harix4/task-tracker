@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const notion = require('./notion');
 const telegram = require('./telegram');
+const team = require('./team');
 
 // Prevents double-counting a task completion within a single server session.
 // The nightly sync recalculates everything from scratch, so any in-memory drift
@@ -69,12 +70,13 @@ async function routeEvent(event) {
   if (!page.properties?.['Task name']) return;
 
   const status = notion.getStatus(page);
-  const assignee = notion.getAssigneeName(page);
+  const assignees = notion.getAssigneeNames(page);
   const taskName = notion.getTaskName(page);
 
-  if (status === 'Complete' && assignee && !completedTaskIds.has(pageId)) {
+  if (status === 'Complete' && !completedTaskIds.has(pageId)) {
     completedTaskIds.add(pageId);
-    await telegram.sendMessage(`✅ *${taskName}* marked complete by @${assignee}`);
+    const tags = assignees.length ? assignees.map(a => team.tag(a)).join(' ') : 'someone';
+    await telegram.sendMessage(`✅ *${taskName}* marked complete by ${tags}`);
   }
 }
 
