@@ -21,6 +21,8 @@ const REQUIRED_ENV = [
   'NOTION_TASKS_DB_ID',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_CHAT_ID',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
 ];
 
 for (const key of REQUIRED_ENV) {
@@ -182,7 +184,7 @@ app.patch('/tasks/:id', async (req, res) => {
 
   try {
     await notion.updatePage(id, properties);
-    if (body.status === 'Done') reminders.cancel(id);
+    if (body.status === 'Done') await reminders.cancel(id);
     res.json({ ok: true });
 
     // Telegram notifications (fire-and-forget)
@@ -231,29 +233,45 @@ app.patch('/tasks/:id', async (req, res) => {
 });
 
 // Reminder endpoints
-app.get('/reminders', (req, res) => {
-  res.json({ reminders: reminders.getAll() });
+app.get('/reminders', async (req, res) => {
+  try {
+    res.json({ reminders: await reminders.getAll() });
+  } catch (err) {
+    console.error('[GET /reminders]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/reminders', (req, res) => {
+app.post('/reminders', async (req, res) => {
   const { taskId, taskName, intervalKey, assigneeNames } = req.body;
   if (!taskId || !intervalKey) return res.status(400).json({ error: 'taskId and intervalKey required' });
-  reminders.set(taskId, taskName || taskId, intervalKey);
-  res.json({ ok: true, reminder: reminders.get(taskId) });
+  try {
+    await reminders.set(taskId, taskName || taskId, intervalKey);
+    const reminder = await reminders.get(taskId);
+    res.json({ ok: true, reminder });
 
-  // Telegram: reminder set notification
-  const tags  = (assigneeNames || []).length ? (assigneeNames).map(n => team.tag(n)).join(' ') : 'Unassigned';
-  const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
-  telegram.sendMessage(
-    `⏰ *Reminder set for: ${taskName || taskId}*\n` +
-    `Assigned to: ${tags}\n` +
-    `Reminding every: ${label}`
-  ).catch(err => console.error('[telegram] reminder set:', err.message));
+    // Telegram: reminder set notification (fire-and-forget)
+    const tags  = (assigneeNames || []).length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
+    const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
+    telegram.sendMessage(
+      `⏰ *Reminder set for: ${taskName || taskId}*\n` +
+      `Assigned to: ${tags}\n` +
+      `Reminding every: ${label}`
+    ).catch(err => console.error('[telegram] reminder set:', err.message));
+  } catch (err) {
+    console.error('[POST /reminders]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete('/reminders/:taskId', (req, res) => {
-  reminders.cancel(req.params.taskId);
-  res.json({ ok: true });
+app.delete('/reminders/:taskId', async (req, res) => {
+  try {
+    await reminders.cancel(req.params.taskId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[DELETE /reminders]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Resources endpoints ──────────────────────────────────────────────────────
@@ -326,11 +344,11 @@ app.get('/archive', (req, res) => {
   res.json({ tasks: archive.getAll() });
 });
 
-app.post('/archive/:id', (req, res) => {
+app.post('/archive/:id', async (req, res) => {
   const { id } = req.params;
   const { name, assignee, category, dueDate, completedAt } = req.body;
   archive.add({ id, name: name || id, assignee: assignee || '', category: category || '', dueDate: dueDate || null, completedAt: completedAt || new Date().toISOString(), status: 'Done' });
-  reminders.cancel(id);
+  await reminders.cancel(id);
   res.json({ ok: true });
 });
 
@@ -379,16 +397,21 @@ app.post('/recurring/:id/toggle', (req, res) => {
 
 // ── Export endpoint ──────────────────────────────────────────────────────────
 
-// Returns all in-memory data as JSON for manual backup
-app.get('/export', (req, res) => {
-  res.json({
-    exportedAt: new Date().toISOString(),
-    archive:    archive.getAll(),
-    resources:  resources.getAll(),
-    tasksMeta:  tasksMeta.getAll(),
-    recurring:  recurring.getAll(),
-    reminders:  reminders.getAll(),
-  });
+// Returns all data as JSON for manual backup
+app.get('/export', async (req, res) => {
+  try {
+    res.json({
+      exportedAt: new Date().toISOString(),
+      archive:    archive.getAll(),
+      resources:  resources.getAll(),
+      tasksMeta:  tasksMeta.getAll(),
+      recurring:  recurring.getAll(),
+      reminders:  await reminders.getAll(),
+    });
+  } catch (err) {
+    console.error('[GET /export]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Returns live performance tally computed from the Tasks database
@@ -469,6 +492,7 @@ async function start() {
   resources.load();
   tasksMeta.load();
   recurring.load();
+  await reminders.load();
   startScheduler();
 
   // Long-poll Telegram in the background — does not block the HTTP server

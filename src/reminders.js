@@ -1,3 +1,4 @@
+const { Redis } = require('@upstash/redis');
 const notion = require('./notion');
 const telegram = require('./telegram');
 const team = require('./team');
@@ -22,10 +23,31 @@ const INTERVAL_MINUTES = {
   '8hr':   480,
 };
 
-// { taskId → { taskId, taskName, intervalKey, lastSentAt, createdAt } }
-const store = {};
+const PREFIX = 'reminder:';
 
-// ── Core ─────────────────────────────────────────────────────────────────────
+const redis = new Redis({
+  url:   process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function parse(v) {
+  if (!v) return null;
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch { return null; }
+}
+
+// ── Core ──────────────────────────────────────────────────────────────────────
+
+async function load() {
+  try {
+    const keys = await redis.keys(`${PREFIX}*`);
+    console.log(`[reminders] ${keys.length} reminder(s) in Redis`);
+  } catch (err) {
+    console.error('[reminders] Redis load error:', err.message);
+  }
+}
 
 function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
   const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
@@ -38,12 +60,10 @@ function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
   );
 }
 
-async function fire(taskId) {
-  const r = store[taskId];
-  if (!r) return;
+async function fire(r) {
   try {
-    const page = await notion.getPage(taskId);
-    if (notion.getStatus(page) === 'Done') { cancel(taskId); return; }
+    const page = await notion.getPage(r.taskId);
+    if (notion.getStatus(page) === 'Done') { await cancel(r.taskId); return; }
     await telegram.sendMessage(buildMessage({
       name:        notion.getTaskName(page),
       assignees:   notion.getAssigneeNames(page),
@@ -56,53 +76,63 @@ async function fire(taskId) {
   }
 }
 
-function set(taskId, taskName, intervalKey) {
+async function set(taskId, taskName, intervalKey) {
   if (!INTERVAL_MINUTES[intervalKey]) {
     console.warn(`[reminders] unknown intervalKey: ${intervalKey}`);
     return;
   }
-  // Preserve createdAt if reminder already existed
-  const existing = store[taskId];
-  store[taskId] = {
+  const existing = await get(taskId);
+  await redis.set(`${PREFIX}${taskId}`, {
     taskId,
     taskName,
     intervalKey,
     lastSentAt: existing?.lastSentAt || null,
     createdAt:  existing?.createdAt  || new Date().toISOString(),
-  };
+  });
   console.log(`[reminders] set ${intervalKey} reminder for "${taskName}"`);
 }
 
-function cancel(taskId) {
-  if (store[taskId]) {
-    delete store[taskId];
-    console.log(`[reminders] cancelled reminder for ${taskId}`);
-  }
+async function cancel(taskId) {
+  await redis.del(`${PREFIX}${taskId}`);
+  console.log(`[reminders] cancelled reminder for ${taskId}`);
 }
 
-function getAll() {
-  return Object.values(store).map(({ taskId, taskName, intervalKey, lastSentAt, createdAt }) =>
-    ({ taskId, taskName, intervalKey, lastSentAt, createdAt })
-  );
+async function get(taskId) {
+  const raw = await redis.get(`${PREFIX}${taskId}`);
+  return parse(raw);
 }
 
-function get(taskId) {
-  const r = store[taskId];
-  return r ? { taskId: r.taskId, taskName: r.taskName, intervalKey: r.intervalKey, lastSentAt: r.lastSentAt, createdAt: r.createdAt } : null;
+async function getAll() {
+  const keys = await redis.keys(`${PREFIX}*`);
+  if (!keys.length) return [];
+  const values = await redis.mget(...keys);
+  return values
+    .map(parse)
+    .filter(r => r && INTERVAL_MINUTES[r.intervalKey]);
 }
 
 async function checkAndFire() {
   const now = Date.now();
-  for (const r of Object.values(store)) {
-    const minutes = INTERVAL_MINUTES[r.intervalKey];
-    if (!minutes) continue;
-    const ms = minutes * 60 * 1000;
+  let all;
+  try {
+    all = await getAll();
+  } catch (err) {
+    console.error('[reminders] checkAndFire fetch error:', err.message);
+    return;
+  }
+  for (const r of all) {
+    const ms = INTERVAL_MINUTES[r.intervalKey] * 60 * 1000;
     const lastSent = r.lastSentAt ? new Date(r.lastSentAt).getTime() : 0;
     if (now - lastSent >= ms) {
-      r.lastSentAt = new Date().toISOString();
-      await fire(r.taskId).catch(console.error);
+      // Persist updated lastSentAt before firing so restarts don't re-fire
+      try {
+        await redis.set(`${PREFIX}${r.taskId}`, { ...r, lastSentAt: new Date().toISOString() });
+      } catch (err) {
+        console.error('[reminders] lastSentAt update error:', err.message);
+      }
+      await fire(r).catch(console.error);
     }
   }
 }
 
-module.exports = { set, cancel, getAll, get, checkAndFire, INTERVAL_LABELS, INTERVAL_MINUTES };
+module.exports = { load, set, cancel, get, getAll, checkAndFire, INTERVAL_LABELS, INTERVAL_MINUTES };
