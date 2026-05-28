@@ -69,7 +69,7 @@ async function getWorkspaceUsers() {
   return (data.results || []).filter((u) => u.type === 'person');
 }
 
-async function createTask({ name, assigneeId, dueDate, status, priority, category, sop }) {
+async function createTask({ name, assigneeId, assigneeIds, dueDate, status, priority, category, sop }) {
   const properties = {
     'Task name': { title: [{ text: { content: name } }] },
   };

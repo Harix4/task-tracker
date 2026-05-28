@@ -84,12 +84,12 @@ app.get('/tasks', async (req, res) => {
 
 // Creates a new task in the Notion Tasks database
 app.post('/tasks', async (req, res) => {
-  const { name, assigneeId, dueDate, status, priority, category } = req.body;
+  const { name, assigneeId, assigneeIds, dueDate, status, priority, category } = req.body;
   if (!name?.trim()) {
     return res.status(400).json({ error: 'Task name is required' });
   }
   try {
-    const page = await notion.createTask({ name: name.trim(), assigneeId, dueDate, status, priority, category });
+    const page = await notion.createTask({ name: name.trim(), assigneeId, assigneeIds, dueDate, status, priority, category });
     const task = {
       id: page.id,
       name: notion.getTaskName(page),
