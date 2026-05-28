@@ -1,0 +1,21 @@
+[
+  {
+    "id": "rc_mpovqn7j_wbi",
+    "name": "Instagram Post",
+    "assignees": [
+      "N1ka"
+    ],
+    "category": "Marketing",
+    "priority": "",
+    "frequency": "daily",
+    "dayOfWeek": null,
+    "dayOfMonth": null,
+    "customDays": null,
+    "startDate": "2026-05-28",
+    "lastCreated": null,
+    "reminderInterval": null,
+    "notes": "",
+    "sop": "",
+    "active": false
+  }
+]
