@@ -101,6 +101,22 @@ app.post('/tasks', async (req, res) => {
       lastEdited: page.last_edited_time,
     };
     res.status(201).json({ task });
+
+    // Telegram: new task notification (fire-and-forget)
+    const assigneeNames = req.body.assigneeNames || [];
+    const tags = assigneeNames.length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
+    const dueFmt = dueDate || 'No date set';
+    const prioFmt = priority ? priority.replace(/^[^\w]+/, '').trim() : 'Not set';
+    const catFmt  = category || 'Not set';
+    telegram.sendMessage(
+      `📌 *New task created*\n\n` +
+      `Task: ${name.trim()}\n` +
+      `Assigned to: ${tags}\n` +
+      `Due: ${dueFmt}\n` +
+      `Priority: ${prioFmt}\n` +
+      `Category: ${catFmt}\n` +
+      `Status: To do`
+    ).catch(err => console.error('[telegram] new task:', err.message));
   } catch (err) {
     console.error('[POST /tasks]', err.message);
     res.status(500).json({ error: err.message || 'Failed to create task in Notion' });
@@ -167,6 +183,46 @@ app.patch('/tasks/:id', async (req, res) => {
     await notion.updatePage(id, properties);
     if (body.status === 'Done') reminders.cancel(id);
     res.json({ ok: true });
+
+    // Telegram notifications (fire-and-forget)
+    const taskName     = body.taskName || 'Task';
+    const prev         = body.previousValues || {};
+    const assigneeNames = body.assigneeNames || [];
+    const prevAssignees = prev.assignees || [];
+
+    // Build changes list
+    const changes = [];
+    if ('status' in body && body.status && body.status !== prev.status)
+      changes.push(`Status: ${prev.status || '—'} → ${body.status}`);
+    if ('name' in body && body.name && body.name.trim() !== (prev.name || '').trim())
+      changes.push(`Name → "${body.name.trim()}"`);
+    if ('dueDate' in body && body.dueDate !== prev.dueDate)
+      changes.push(`Due: ${body.dueDate || 'removed'}`);
+    if ('priority' in body && body.priority !== prev.priority) {
+      const p = (s) => s ? s.replace(/^[^\w]+/, '').trim() : 'removed';
+      changes.push(`Priority: ${p(prev.priority)} → ${p(body.priority)}`);
+    }
+    if ('category' in body && body.category !== prev.category)
+      changes.push(`Category: ${prev.category || '—'} → ${body.category || 'removed'}`);
+    if (assigneeNames.length && JSON.stringify(assigneeNames.sort()) !== JSON.stringify([...prevAssignees].sort()))
+      changes.push(`Assignees: ${assigneeNames.map(n => team.tag(n)).join(' ')}`);
+
+    if (changes.length > 0) {
+      telegram.sendMessage(
+        `✏️ *Task updated: ${taskName}*\n` +
+        `Changes: ${changes.join(' · ')}`
+      ).catch(err => console.error('[telegram] task update:', err.message));
+    }
+
+    // Task assigned: was unassigned, now has assignees
+    if (prevAssignees.length === 0 && assigneeNames.length > 0) {
+      const tags = assigneeNames.map(n => team.tag(n)).join(' ');
+      const due  = body.dueDate || prev.dueDate || 'No date set';
+      telegram.sendMessage(
+        `👤 *${taskName}* has been assigned to ${tags}\n` +
+        `Due: ${due}`
+      ).catch(err => console.error('[telegram] task assigned:', err.message));
+    }
   } catch (err) {
     console.error('[PATCH /tasks/:id]', err.message);
     res.status(500).json({ error: err.message });
@@ -179,10 +235,19 @@ app.get('/reminders', (req, res) => {
 });
 
 app.post('/reminders', (req, res) => {
-  const { taskId, taskName, intervalKey } = req.body;
+  const { taskId, taskName, intervalKey, assigneeNames } = req.body;
   if (!taskId || !intervalKey) return res.status(400).json({ error: 'taskId and intervalKey required' });
   reminders.set(taskId, taskName || taskId, intervalKey);
   res.json({ ok: true, reminder: reminders.get(taskId) });
+
+  // Telegram: reminder set notification
+  const tags  = (assigneeNames || []).length ? (assigneeNames).map(n => team.tag(n)).join(' ') : 'Unassigned';
+  const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
+  telegram.sendMessage(
+    `⏰ *Reminder set for: ${taskName || taskId}*\n` +
+    `Assigned to: ${tags}\n` +
+    `Reminding every: ${label}`
+  ).catch(err => console.error('[telegram] reminder set:', err.message));
 });
 
 app.delete('/reminders/:taskId', (req, res) => {

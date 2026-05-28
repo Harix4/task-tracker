@@ -1657,6 +1657,7 @@
       .filter(Boolean)
       .map(u => u.id);
     if (assigneeIds.length) data.assigneeIds = assigneeIds;
+    if (selectedNames.length) data.assigneeNames = selectedNames;
 
     btn.disabled = true;
     btn.textContent = 'Creating…';
@@ -1767,7 +1768,17 @@
       .filter(Boolean)
       .map(u => u.id);
 
-    const body = { status, dueDate, priority, category, assigneeIds };
+    // Extras for Telegram notifications on the backend
+    const previousValues = {
+      name:      task.name,
+      status:    task.status,
+      dueDate:   task.dueDate,
+      priority:  task.priority,
+      category:  task.category,
+      assignees: state.tasksMeta[taskId]?.assignees || task.assignees || [],
+    };
+
+    const body = { status, dueDate, priority, category, assigneeIds, assigneeNames: selectedNames, taskName: task.name, previousValues };
     if (name) body.name = name;
 
     const btn = document.getElementById('saveBtn');
@@ -2047,10 +2058,11 @@
   }
 
   async function setReminderForTask(taskId, taskName, intervalKey) {
+    const assigneeNames = getPickerSelections('panel-pp');
     const res = await fetch('/reminders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId, taskName, intervalKey }),
+      body: JSON.stringify({ taskId, taskName, intervalKey, assigneeNames }),
     });
     if (res.ok) openPanel(taskId);
   }
