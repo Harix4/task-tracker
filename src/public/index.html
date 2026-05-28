@@ -792,6 +792,7 @@
       transition: background 0.1s, color 0.1s;
     }
     .rem-pill:hover { background: rgba(255,255,255,.14); color: var(--text); }
+    .rem-pill-active { background: #0071e3 !important; color: #fff !important; }
     .reminder-active-pill {
       display: inline-flex; align-items: center; gap: 8px;
       font-size: 12.5px; font-weight: 500;
@@ -805,6 +806,47 @@
       padding: 0 0 0 2px; font-family: var(--font);
     }
     .reminder-cancel-btn:hover { color: var(--red); }
+
+    /* ── Recurring tasks page ───────────────────────────────────── */
+    .rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-top: 16px; }
+    .rc-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px;
+      transition: border-color 0.15s, opacity 0.2s;
+    }
+    .rc-card:hover { border-color: rgba(255,255,255,0.22); }
+    .rc-card.rc-paused { opacity: 0.5; }
+    .rc-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .rc-name { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; line-height: 1.3; }
+    .rc-menu-btn {
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      font-size: 18px; padding: 0 4px; line-height: 1; border-radius: 5px;
+      flex-shrink: 0; font-family: var(--font);
+    }
+    .rc-menu-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+    .rc-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .freq-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px;
+      background: rgba(10,132,255,0.15); color: #0a84ff; letter-spacing: 0.02em;
+    }
+    .rc-status { display: flex; align-items: center; gap: 5px; margin-top: 10px; }
+    .rc-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .rc-dot.rc-active { background: #34c759; }
+    .rc-dot.rc-inactive { background: rgba(255,255,255,0.28); }
+    .rc-status-label { font-size: 12px; color: var(--muted); }
+    .rc-next { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .rc-empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+    .rc-empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+    /* DOW / DOM pickers */
+    .dow-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+    .dow-btn {
+      padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      border: 1.5px solid rgba(255,255,255,0.12); background: none;
+      color: var(--muted); cursor: pointer; font-family: var(--font);
+      transition: all 0.12s;
+    }
+    .dow-btn.selected { border-color: #0071e3; background: rgba(0,113,227,0.15); color: var(--text); }
 
     /* ── People picker ──────────────────────────────────────────── */
     .people-picker { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -905,6 +947,13 @@
         </svg>
         Tasks
       </div>
+      <div class="nav-item" data-page="recurring" onclick="navigate('recurring')">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4"/>
+          <path d="M2.5 2.5v3h3"/>
+        </svg>
+        Recurring
+      </div>
       <div class="nav-item" data-page="performance" onclick="navigate('performance')">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor">
           <rect x="1" y="9" width="3" height="6" rx="1"/>
@@ -969,6 +1018,7 @@
     filter: { status: 'All', search: '', category: '' },
     viewMode: 'table',
     workspaceUsers: [],
+    recurring: [],
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -1126,18 +1176,20 @@
   // ── Data fetching ──────────────────────────────────────────────────────────
   async function fetchAll() {
     try {
-      const [tr, pr, ar, rr, mr] = await Promise.all([
+      const [tr, pr, ar, rr, mr, rcr] = await Promise.all([
         fetch('/tasks').then(r => r.ok ? r.json() : null).catch(() => null),
         fetch('/performance').then(r => r.ok ? r.json() : null).catch(() => null),
         fetch('/archive').then(r => r.ok ? r.json() : null).catch(() => null),
         fetch('/resources').then(r => r.ok ? r.json() : null).catch(() => null),
         fetch('/tasks-meta').then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch('/recurring').then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
       if (tr?.tasks) state.tasks = tr.tasks.filter(t => t.status !== 'Done');
       if (pr?.members) state.perf = pr;
       if (ar?.tasks) state.archive = ar.tasks;
       if (rr?.resources) state.resources = rr.resources;
       if (mr?.meta) state.tasksMeta = mr.meta;
+      if (rcr?.recurring) state.recurring = rcr.recurring;
       flashDot();
     } catch (e) {
       console.warn('[taskr] fetch error:', e.message);
@@ -2072,6 +2124,303 @@
     openPanel(taskId);
   }
 
+  // ── Recurring tasks ────────────────────────────────────────────────────────
+
+  const FREQ_LABELS = {
+    daily:    'Daily',
+    weekday:  'Weekday',
+    weekly:   'Weekly',
+    biweekly: 'Biweekly',
+    monthly:  'Monthly',
+  };
+  const DAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  function freqLabel(rt) {
+    if (rt.frequency === 'custom') return `Every ${rt.customDays || '?'} days`;
+    return FREQ_LABELS[rt.frequency] || rt.frequency;
+  }
+
+  function nextDueDateStr(rt) {
+    const today = new Date().toISOString().split('T')[0];
+    if (!rt.lastCreated && rt.startDate >= today) return `Starts ${fmtDate(rt.startDate)}`;
+    const base = new Date(rt.lastCreated || rt.startDate);
+    let next = new Date(base);
+    switch (rt.frequency) {
+      case 'daily':    next.setDate(next.getDate() + 1); break;
+      case 'weekday':  next.setDate(next.getDate() + 1);
+                       while ([0,6].includes(next.getDay())) next.setDate(next.getDate() + 1);
+                       break;
+      case 'weekly':   next.setDate(next.getDate() + 7); break;
+      case 'biweekly': next.setDate(next.getDate() + 14); break;
+      case 'monthly':  next = new Date(base); next.setMonth(next.getMonth() + 1);
+                       if (rt.dayOfMonth) next.setDate(rt.dayOfMonth); break;
+      case 'custom':   next.setDate(next.getDate() + (rt.customDays || 1)); break;
+      default: return '—';
+    }
+    const ns = next.toISOString().split('T')[0];
+    return `Next: ${ns === today ? 'Today' : fmtDate(ns)}`;
+  }
+
+  let panelRecurringId = null;  // null = create mode, string = edit mode
+
+  function renderRecurring() {
+    const items = state.recurring;
+    return `
+      <div class="page-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Recurring Tasks</span>
+        <button class="new-task-btn" onclick="openRecurringPanel(null)">+ New Recurring Task</button>
+      </div>
+      ${items.length === 0
+        ? `<div class="rc-empty"><div class="rc-empty-icon">🔄</div><div>No recurring tasks yet.<br>Create one to auto-generate tasks on a schedule.</div></div>`
+        : `<div class="rc-grid">
+            ${items.map(rt => {
+              const assignees = rt.assignees || [];
+              const paused = !rt.active;
+              return `<div class="rc-card${paused ? ' rc-paused' : ''}">
+                <div class="rc-card-header">
+                  <div class="rc-name">${esc(rt.name)}</div>
+                  <button class="rc-menu-btn" onclick="rcToggleMenu('${esc(rt.id)}',event)" title="Options">⋯</button>
+                </div>
+                <div class="rc-meta">
+                  ${assignees.length ? avatarStackHtml(assignees, 20) : ''}
+                  ${rt.category ? catPill(rt.category) : ''}
+                  <span class="freq-badge">${esc(freqLabel(rt))}</span>
+                  ${paused ? `<span style="font-size:11px;color:var(--muted);font-weight:600">PAUSED</span>` : ''}
+                </div>
+                <div class="rc-next">${esc(nextDueDateStr(rt))}</div>
+                <div class="rc-status">
+                  <div class="rc-dot ${rt.active ? 'rc-active' : 'rc-inactive'}"></div>
+                  <span class="rc-status-label">${rt.active ? 'Active' : 'Paused'}</span>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`
+      }`;
+  }
+
+  function rcToggleMenu(id, e) {
+    e.stopPropagation();
+    document.querySelectorAll('.kb-move-menu').forEach(m => m.remove());
+    const rt = state.recurring.find(r => r.id === id);
+    if (!rt) return;
+    const menu = document.createElement('div');
+    menu.className = 'kb-move-menu';
+    menu.style.cssText = `top:${e.clientY + 4}px;left:${e.clientX - 120}px`;
+    menu.innerHTML = `
+      <div class="kb-move-item" onclick="openRecurringPanel('${esc(id)}')">✏️ Edit</div>
+      <div class="kb-move-item" onclick="toggleRecurringPause('${esc(id)}')">${rt.active ? '⏸ Pause' : '▶️ Resume'}</div>
+      <div class="kb-move-item" style="color:var(--red)" onclick="deleteRecurring('${esc(id)}')">🗑 Delete</div>`;
+    document.body.appendChild(menu);
+    const close = () => { menu.remove(); document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+
+  async function toggleRecurringPause(id) {
+    const res = await fetch(`/recurring/${id}/toggle`, { method: 'POST' });
+    if (res.ok) {
+      const { recurring: updated } = await res.json();
+      const idx = state.recurring.findIndex(r => r.id === id);
+      if (idx !== -1) state.recurring[idx] = updated;
+      render();
+    }
+  }
+
+  async function deleteRecurring(id) {
+    if (!confirm('Delete this recurring task? This cannot be undone.')) return;
+    const res = await fetch(`/recurring/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      state.recurring = state.recurring.filter(r => r.id !== id);
+      render();
+    }
+  }
+
+  function openRecurringPanel(id = null) {
+    panelRecurringId = id;
+    const rt = id ? state.recurring.find(r => r.id === id) : null;
+    document.getElementById('panelTitle').textContent = rt ? 'Edit Recurring Task' : 'New Recurring Task';
+    document.getElementById('panelBody').innerHTML = recurringPanelContent(rt);
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('open');
+    toggleRecurringFreq();
+    document.getElementById('rc_name')?.focus();
+  }
+
+  function recurringPanelContent(rt = null) {
+    const v = (field, fallback = '') => rt ? (rt[field] ?? fallback) : fallback;
+    const assignees = rt?.assignees || [];
+    const freq = v('frequency', 'daily');
+    const dow  = v('dayOfWeek', null);
+    const dom  = v('dayOfMonth', null);
+
+    return `
+      <div class="form-field">
+        <label class="form-label" for="rc_name">Task Name *</label>
+        <input id="rc_name" class="form-input" type="text" value="${esc(v('name'))}" placeholder="e.g. Instagram Post">
+      </div>
+      <div class="form-field">
+        <label class="form-label">Assignee</label>
+        ${peoplePicker(assignees, 'rc-pp')}
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_category">Category</label>
+        <select id="rc_category" class="form-input">
+          <option value="">—</option>
+          ${['Ads','Fulfillment','Creative','Finance','Operations','Marketing','Accounting'].map(c =>
+            `<option value="${c}"${v('category')===c?' selected':''}>${c}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_priority">Priority</label>
+        <select id="rc_priority" class="form-input">
+          <option value="">—</option>
+          ${['🔴 High','🟡 Medium','🟢 Low'].map(p => {
+            const label = p.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u,'').trim();
+            return `<option value="${esc(p)}"${v('priority')===p?' selected':''}>${label}</option>`;
+          }).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_frequency">Frequency</label>
+        <select id="rc_frequency" class="form-input" onchange="toggleRecurringFreq()">
+          ${[['daily','Daily'],['weekday','Every weekday (Mon–Fri)'],['weekly','Weekly'],['biweekly','Biweekly'],['monthly','Monthly'],['custom','Custom']].map(([val,lbl]) =>
+            `<option value="${val}"${freq===val?' selected':''}>${lbl}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div id="rc_dow_wrap" class="form-field" style="display:none">
+        <label class="form-label">Day of week</label>
+        <div class="dow-picker">
+          ${DAYS_SHORT.map((d,i) =>
+            `<button type="button" class="dow-btn${dow===i?' selected':''}" data-dow="${i}" onclick="toggleDowBtn(this)">${d}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div id="rc_dom_wrap" class="form-field" style="display:none">
+        <label class="form-label" for="rc_dom">Day of month</label>
+        <input id="rc_dom" class="form-input" type="number" min="1" max="31" value="${dom || ''}" placeholder="1–31" style="width:80px">
+      </div>
+      <div id="rc_custom_wrap" class="form-field" style="display:none">
+        <label class="form-label" for="rc_customDays">Every</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="rc_customDays" class="form-input" type="number" min="1" value="${v('customDays','')||''}" placeholder="7" style="width:70px">
+          <span style="font-size:13px;color:var(--muted)">days</span>
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_startDate">Start Date</label>
+        <input id="rc_startDate" class="form-input" type="date" value="${esc(v('startDate', new Date().toISOString().split('T')[0]))}">
+      </div>
+      <div class="form-field">
+        <div class="form-label">Auto-assign Reminder (optional)</div>
+        <div class="rem-pills" id="rc_reminder_pills">
+          ${REMINDER_OPTIONS.map(([key,label]) => {
+            const sel = v('reminderInterval') === key;
+            return `<button type="button" class="rem-pill${sel?' rem-pill-active':''}"
+              onclick="toggleRcReminderPill('${key}')">${label}</button>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_notes">Notes</label>
+        <textarea id="rc_notes" class="form-input res-textarea" style="min-height:80px" placeholder="Optional notes…">${esc(v('notes'))}</textarea>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="rc_sop">SOP</label>
+        <textarea id="rc_sop" class="form-input res-textarea" style="min-height:80px" placeholder="Paste SOP steps…">${esc(v('sop'))}</textarea>
+      </div>
+      <button type="button" id="rcSaveBtn" class="panel-save-btn" onclick="submitRecurring()">${rt ? 'Save Changes' : 'Create'}</button>
+      <div id="rcError" style="display:none;margin-top:8px" class="form-error"></div>`;
+  }
+
+  function toggleRecurringFreq() {
+    const freq = document.getElementById('rc_frequency')?.value;
+    document.getElementById('rc_dow_wrap').style.display  = freq === 'weekly'  ? 'block' : 'none';
+    document.getElementById('rc_dom_wrap').style.display  = freq === 'monthly' ? 'block' : 'none';
+    document.getElementById('rc_custom_wrap').style.display = freq === 'custom' ? 'block' : 'none';
+  }
+
+  function toggleDowBtn(btn) { btn.classList.toggle('selected'); }
+
+  function toggleRcReminderPill(key) {
+    const current = document.querySelector('#rc_reminder_pills .rem-pill-active');
+    // If clicking the already-selected pill, deselect it
+    if (current?.dataset.key === key || current?.textContent === INTERVAL_LABELS[key]) {
+      current.classList.remove('rem-pill-active');
+      return;
+    }
+    document.querySelectorAll('#rc_reminder_pills .rem-pill').forEach(p => p.classList.remove('rem-pill-active'));
+    const pills = document.querySelectorAll('#rc_reminder_pills .rem-pill');
+    REMINDER_OPTIONS.forEach(([k], i) => { if (k === key) pills[i]?.classList.add('rem-pill-active'); });
+  }
+
+  async function submitRecurring() {
+    const btn   = document.getElementById('rcSaveBtn');
+    const errEl = document.getElementById('rcError');
+    const name  = document.getElementById('rc_name')?.value.trim();
+    if (!name) { errEl.textContent = 'Task name is required'; errEl.style.display = 'block'; return; }
+
+    const freq      = document.getElementById('rc_frequency')?.value;
+    const assignees = getPickerSelections('rc-pp');
+
+    // Day of week: first selected dow-btn
+    const selectedDow = document.querySelector('#rc_dow_wrap .dow-btn.selected');
+    const dayOfWeek   = selectedDow ? parseInt(selectedDow.dataset.dow) : null;
+    const dayOfMonth  = parseInt(document.getElementById('rc_dom')?.value) || null;
+    const customDays  = parseInt(document.getElementById('rc_customDays')?.value) || null;
+
+    // Reminder interval: active pill
+    const activePill = document.querySelector('#rc_reminder_pills .rem-pill-active');
+    const reminderInterval = activePill
+      ? REMINDER_OPTIONS[Array.from(document.querySelectorAll('#rc_reminder_pills .rem-pill')).indexOf(activePill)]?.[0] || null
+      : null;
+
+    const payload = {
+      name,
+      assignees,
+      category:         document.getElementById('rc_category')?.value  || '',
+      priority:         document.getElementById('rc_priority')?.value  || '',
+      frequency: freq,
+      dayOfWeek:        freq === 'weekly'  ? dayOfWeek  : null,
+      dayOfMonth:       freq === 'monthly' ? dayOfMonth : null,
+      customDays:       freq === 'custom'  ? customDays : null,
+      startDate:        document.getElementById('rc_startDate')?.value || '',
+      reminderInterval,
+      notes:            document.getElementById('rc_notes')?.value || '',
+      sop:              document.getElementById('rc_sop')?.value   || '',
+    };
+
+    btn.disabled = true;
+    btn.textContent = panelRecurringId ? 'Saving…' : 'Creating…';
+    errEl.style.display = 'none';
+
+    try {
+      const url    = panelRecurringId ? `/recurring/${panelRecurringId}` : '/recurring';
+      const method = panelRecurringId ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+
+      if (panelRecurringId) {
+        const idx = state.recurring.findIndex(r => r.id === panelRecurringId);
+        if (idx !== -1) state.recurring[idx] = data.recurring;
+      } else {
+        state.recurring.unshift(data.recurring);
+      }
+      closePanel();
+      render();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = panelRecurringId ? 'Save Changes' : 'Create';
+    }
+  }
+
   // ── View mode ──────────────────────────────────────────────────────────────
   function setViewMode(mode) {
     state.viewMode = mode;
@@ -2339,6 +2688,7 @@
       case 'performance': main.innerHTML = renderPerformance(); break;
       case 'resources':   main.innerHTML = renderResources();   break;
       case 'completed':   main.innerHTML = renderCompleted();   break;
+      case 'recurring':   main.innerHTML = renderRecurring();   break;
     }
   }
 

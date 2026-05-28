@@ -12,6 +12,7 @@ const reminders = require('./reminders');
 const archive = require('./archive');
 const resources = require('./resources');
 const tasksMeta = require('./tasks-meta');
+const recurring = require('./recurring');
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
@@ -345,6 +346,37 @@ app.delete('/archive/:id', async (req, res) => {
   }
 });
 
+// ── Recurring task endpoints ─────────────────────────────────────────────────
+
+app.get('/recurring', (req, res) => {
+  res.json({ recurring: recurring.getAll() });
+});
+
+app.post('/recurring', (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name is required' });
+  const rec = recurring.create(req.body);
+  res.status(201).json({ recurring: rec });
+});
+
+app.patch('/recurring/:id', (req, res) => {
+  const updated = recurring.update(req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json({ recurring: updated });
+});
+
+app.delete('/recurring/:id', (req, res) => {
+  const ok = recurring.remove(req.params.id);
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+app.post('/recurring/:id/toggle', (req, res) => {
+  const updated = recurring.togglePause(req.params.id);
+  if (!updated) return res.status(404).json({ error: 'Not found' });
+  res.json({ recurring: updated });
+});
+
 // Returns live performance tally computed from the Tasks database
 app.get('/performance', async (req, res) => {
   try {
@@ -422,6 +454,7 @@ async function start() {
   archive.load();
   resources.load();
   tasksMeta.load();
+  recurring.load();
   startScheduler();
 
   // Long-poll Telegram in the background — does not block the HTTP server

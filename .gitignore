@@ -3,4 +3,5 @@ node_modules/
 data/archive.json
 data/resources.json
 data/tasks-meta.json
+data/recurring.json
 .env.save

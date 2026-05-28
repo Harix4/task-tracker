@@ -4,6 +4,7 @@ const telegram = require('./telegram');
 const tally = require('./tally');
 const team = require('./team');
 const reminders = require('./reminders');
+const recurring = require('./recurring');
 
 // ── Message builders ────────────────────────────────────────────────────────
 
@@ -136,11 +137,67 @@ async function sendWeeklyReport() {
   await telegram.sendMessage(buildWeeklyReport(members, topPerformer));
 }
 
+// ── Recurring task generation ────────────────────────────────────────────────
+
+const FREQ_LABELS = {
+  daily: 'Daily', weekday: 'Weekday (Mon–Fri)', weekly: 'Weekly',
+  biweekly: 'Biweekly', monthly: 'Monthly',
+};
+
+async function generateRecurringTasks() {
+  console.log('[scheduler] Generating recurring tasks');
+  const today = new Date().toISOString().split('T')[0];
+
+  // Fetch workspace users once for name→ID mapping
+  let workspaceUsers = [];
+  try { workspaceUsers = await notion.getWorkspaceUsers(); } catch (_) {}
+
+  const tasks = recurring.getAll().filter(rt => rt.active);
+  for (const rt of tasks) {
+    if (!recurring.shouldCreateToday(rt, today)) continue;
+    try {
+      const assigneeIds = (rt.assignees || [])
+        .map(name => workspaceUsers.find(u =>
+          u.name?.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(u.name?.toLowerCase())
+        ))
+        .filter(Boolean)
+        .map(u => u.id);
+
+      await notion.createTask({
+        name: rt.name,
+        assigneeIds,
+        dueDate: today,
+        priority: rt.priority,
+        category: rt.category,
+      });
+
+      recurring.update(rt.id, { lastCreated: today });
+
+      const tags = (rt.assignees || []).map(n => team.tag(n)).join(' ') || 'Unassigned';
+      const freqLabel = FREQ_LABELS[rt.frequency] || (rt.customDays ? `Every ${rt.customDays} days` : rt.frequency);
+      await telegram.sendMessage(
+        `🔄 *Recurring task created*\n` +
+        `${rt.name}\n` +
+        `Assigned to: ${tags}\n` +
+        `Due: Today\n` +
+        `Frequency: ${freqLabel}`
+      );
+      console.log(`[scheduler] Created recurring task: "${rt.name}"`);
+    } catch (err) {
+      console.error(`[scheduler] Failed to generate "${rt.name}":`, err.message);
+    }
+  }
+}
+
 // ── Scheduler setup ─────────────────────────────────────────────────────────
 
 function startScheduler() {
   // Check reminders every 10 minutes
   cron.schedule('*/10 * * * *', () => reminders.checkAndFire().catch(console.error));
+
+  // Generate recurring tasks — 6am every day
+  cron.schedule('0 6 * * *', () => generateRecurringTasks().catch(console.error));
 
   // Daily digest — every day at 9am
   cron.schedule('0 9 * * *', () => sendDailyDigest().catch(console.error));
@@ -151,7 +208,7 @@ function startScheduler() {
   // Weekly report — Monday 9am
   cron.schedule('0 9 * * 1', () => sendWeeklyReport().catch(console.error));
 
-  console.log('[scheduler] Jobs registered: reminders@10min · digest@9am · overdue@6pm · report@Mon9am');
+  console.log('[scheduler] Jobs registered: recurring@6am · reminders@10min · digest@9am · overdue@6pm · report@Mon9am');
 }
 
 module.exports = { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport };
