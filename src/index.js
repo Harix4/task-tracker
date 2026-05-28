@@ -455,6 +455,7 @@ async function start() {
   resources.load();
   tasksMeta.load();
   recurring.load();
+  reminders.load();
   startScheduler();
 
   // Long-poll Telegram in the background — does not block the HTTP server
