@@ -8,7 +8,7 @@ const JWT_EXPIRES = '30d';
 // ── Members ───────────────────────────────────────────────────────────────────
 // username must match the Notion "Assigned to" name exactly so task filtering works
 const MEMBERS = [
-  { username: 'Harihar Singh', displayName: 'Admin',   role: 'admin',  telegram: 'harixfour', initials: 'HS' },
+  { username: 'Harihar Singh', displayName: 'Harihar Singh', role: 'admin', telegram: 'harixfour', initials: 'HS' },
   { username: 'Gelika',        displayName: 'Gelika',   role: 'member', telegram: 'Gelika',    initials: 'G'  },
   { username: 'Irakli',        displayName: 'Irakli',   role: 'member', telegram: 'n1tchvar',  initials: 'I'  },
   { username: 'N1ka',          displayName: 'N1ka',     role: 'member', telegram: 'Abduu_19',  initials: 'N'  },
