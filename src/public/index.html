@@ -1187,13 +1187,66 @@
     .personal-new-btn:hover { opacity: 0.85; }
     .ptask-done-row td { opacity: .45; text-decoration: line-through; }
 
-    /* ── Personal task panel ────────────────────────────────────── */
-    .ptask-form-field { margin-bottom: 16px; }
-    .ptask-label {
-      display: block; font-size: 12px; font-weight: 600;
-      color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
-      margin-bottom: 6px;
+    /* ── Custom date picker ─────────────────────────────────────── */
+    .datepicker-wrap { position: relative; }
+    .datepicker-btn {
+      width: 100%; height: 36px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--field-bg); font-family: var(--font);
+      font-size: 13px; color: var(--text);
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; transition: border-color 0.12s, background 0.12s;
+      gap: 8px;
     }
+    .datepicker-btn:hover { border-color: var(--blue); }
+    .datepicker-btn.dp-ph { color: var(--muted); }
+    .datepicker-btn span { flex: 1; text-align: left; }
+    .datepicker-btn svg { flex-shrink: 0; opacity: 0.5; }
+    .datepicker-cal {
+      position: absolute; top: calc(100% + 6px); left: 0; z-index: 600;
+      background: var(--menu-bg); border: 1px solid var(--menu-border);
+      border-radius: 14px; box-shadow: var(--menu-shadow);
+      padding: 14px; width: 264px;
+    }
+    .dp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .dp-month { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .dp-nav {
+      width: 26px; height: 26px; border-radius: 7px;
+      background: var(--nav-hover); color: var(--text); border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 15px; font-weight: 500;
+      transition: background 0.1s; font-family: var(--font); padding: 0;
+    }
+    .dp-nav:hover { background: var(--tab-active); }
+    .dp-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+    }
+    .dp-dow {
+      font-size: 10px; font-weight: 600; color: var(--muted);
+      text-align: center; padding: 5px 0 4px;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .dp-day {
+      font-size: 12.5px; height: 30px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; border: none; background: none;
+      color: var(--text); transition: background 0.1s;
+      font-family: var(--font); padding: 0;
+    }
+    .dp-day:hover:not(.dp-empty):not(.dp-sel) { background: var(--nav-hover); }
+    .dp-day.dp-today { box-shadow: 0 0 0 1.5px var(--blue); color: var(--blue); font-weight: 600; }
+    .dp-day.dp-sel { background: var(--blue) !important; color: #fff !important; font-weight: 600; box-shadow: none; }
+    .dp-day.dp-empty { cursor: default; }
+    .dp-clear {
+      margin-top: 8px; width: 100%; padding: 5px;
+      border-radius: 7px; font-size: 11.5px; color: var(--muted);
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font); transition: background 0.1s;
+    }
+    .dp-clear:hover { background: var(--nav-hover); color: var(--text); }
   </style>
 </head>
 <body class="dark">
@@ -1464,11 +1517,12 @@
   async function submitPin() {
     if (!selectedMember || pinDigits.length < 4) return;
     const pin = pinDigits.join('');
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     try {
       const res  = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: selectedMember, pin }),
+        body: JSON.stringify({ username: selectedMember, pin, timezone }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1479,6 +1533,8 @@
       }
       setToken(data.token);
       state.user = parseJWT(data.token);
+      // Persist timezone locally
+      localStorage.setItem(TZ_KEY, data.timezone || timezone);
       showApp();
       renderNav();
       renderSidebarUser();
@@ -1552,6 +1608,10 @@
       const user = parseJWT(token);
       if (user) {
         state.user = user;
+        // Ensure timezone is in localStorage (may be missing on first boot)
+        if (!localStorage.getItem(TZ_KEY)) {
+          localStorage.setItem(TZ_KEY, Intl.DateTimeFormat().resolvedOptions().timeZone);
+        }
         showApp();
         renderNav();
         renderSidebarUser();
@@ -1589,6 +1649,129 @@
       ? `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><circle cx="10" cy="10" r="3.5"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"/></svg>`
       : `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M17.5 11.5A8 8 0 018.5 2.5a8 8 0 000 15 8 8 0 009-6z"/></svg>`;
   }
+
+  // ── Custom date picker ────────────────────────────────────────────────────
+  const DP = {
+    _state: null, // { wid, iid, year, month, val }
+    _MONTHS: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    _DAYS:   ['Su','Mo','Tu','We','Th','Fr','Sa'],
+
+    // Generate full picker field HTML (used inside template strings)
+    field(iid, val, fieldName = '') {
+      const wid  = 'dpw_' + iid;
+      const d    = val ? new Date(val + 'T12:00:00') : null;
+      const today = new Date();
+      const yr   = d ? d.getFullYear()  : today.getFullYear();
+      const mo   = d ? d.getMonth()     : today.getMonth();
+      const disp = val ? fmtDate(val) : '';
+      const nm   = fieldName ? ` name="${esc(fieldName)}"` : '';
+      return `<div id="${wid}" class="datepicker-wrap">
+        <input type="hidden" id="${iid}"${nm} value="${esc(val||'')}">
+        ${DP._btn(wid, iid, yr, mo, val||'')}
+      </div>`;
+    },
+
+    _btn(wid, iid, yr, mo, val) {
+      const disp = val ? fmtDate(val) : '';
+      return `<button type="button" class="datepicker-btn${!disp ? ' dp-ph' : ''}"
+        onclick="DP.open('${wid}','${iid}',${yr},${mo},'${val}');event.stopPropagation()">
+        <span>${disp || 'Select date'}</span>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="0.5" y="1.5" width="12" height="10.5" rx="1.5"/>
+          <path d="M0.5 5h12M4 0.5v2M9 0.5v2"/>
+        </svg>
+      </button>`;
+    },
+
+    open(wid, iid, yr, mo, val) {
+      // Close any other open picker first
+      if (DP._state && DP._state.wid !== wid) DP._close();
+      DP._state = { wid, iid, yr, mo, val };
+      const wrap = document.getElementById(wid);
+      if (!wrap) return;
+      wrap.querySelector('.datepicker-cal')?.remove();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = DP._cal(wid, iid, yr, mo, val);
+      wrap.appendChild(tmp.firstElementChild);
+    },
+
+    nav(wid, iid, yr, mo, val, e) {
+      e?.stopPropagation();
+      DP._state = { wid, iid, yr, mo, val };
+      const wrap = document.getElementById(wid);
+      if (!wrap) return;
+      wrap.querySelector('.datepicker-cal')?.remove();
+      const tmp = document.createElement('div');
+      tmp.innerHTML = DP._cal(wid, iid, yr, mo, val);
+      wrap.appendChild(tmp.firstElementChild);
+    },
+
+    select(wid, iid, dateStr, yr, mo, e) {
+      e?.stopPropagation();
+      const hidden = document.getElementById(iid);
+      if (hidden) hidden.value = dateStr;
+      DP._state = null;
+      const wrap = document.getElementById(wid);
+      if (wrap) {
+        wrap.querySelector('.datepicker-cal')?.remove();
+        const btn = wrap.querySelector('.datepicker-btn');
+        if (btn) btn.outerHTML = DP._btn(wid, iid, yr, mo, dateStr);
+        // Re-fetch btn since we replaced it
+        const newBtn = wrap.querySelector('.datepicker-btn');
+        if (newBtn) newBtn.classList.toggle('dp-ph', !dateStr);
+        // Update displayed text
+        const span = wrap.querySelector('.datepicker-btn span');
+        if (span) span.textContent = dateStr ? fmtDate(dateStr) : 'Select date';
+      }
+    },
+
+    _close() {
+      if (!DP._state) return;
+      const wrap = document.getElementById(DP._state.wid);
+      wrap?.querySelector('.datepicker-cal')?.remove();
+      DP._state = null;
+    },
+
+    _cal(wid, iid, yr, mo, sel) {
+      const today = new Date();
+      const ts = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+      const firstDow  = new Date(yr, mo, 1).getDay();
+      const lastDay   = new Date(yr, mo + 1, 0).getDate();
+      const pm = mo === 0  ? { y: yr-1, m: 11 } : { y: yr, m: mo-1 };
+      const nm = mo === 11 ? { y: yr+1, m: 0  } : { y: yr, m: mo+1 };
+
+      let cells = '';
+      for (let i = 0; i < firstDow; i++) cells += `<div class="dp-day dp-empty"></div>`;
+      for (let d = 1; d <= lastDay; d++) {
+        const ds = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        cells += `<button type="button" class="dp-day${ds===ts?' dp-today':''}${ds===sel?' dp-sel':''}"
+          onclick="DP.select('${wid}','${iid}','${ds}',${yr},${mo},event)">${d}</button>`;
+      }
+
+      return `<div class="datepicker-cal">
+        <div class="dp-header">
+          <button type="button" class="dp-nav"
+            onclick="DP.nav('${wid}','${iid}',${pm.y},${pm.m},'${sel}',event)">‹</button>
+          <span class="dp-month">${DP._MONTHS[mo]} ${yr}</span>
+          <button type="button" class="dp-nav"
+            onclick="DP.nav('${wid}','${iid}',${nm.y},${nm.m},'${sel}',event)">›</button>
+        </div>
+        <div class="dp-grid">
+          ${DP._DAYS.map(d => `<div class="dp-dow">${d}</div>`).join('')}
+          ${cells}
+        </div>
+        ${sel ? `<button type="button" class="dp-clear"
+          onclick="DP.select('${wid}','${iid}','',${yr},${mo},event)">Clear date</button>` : ''}
+      </div>`;
+    },
+  };
+
+  // Close calendar on outside click
+  document.addEventListener('click', () => { if (DP._state) DP._close(); });
+
+  // ── Timezone ──────────────────────────────────────────────────────────────
+  const TZ_KEY = 'taskr_tz';
+  function getUserTz() { return localStorage.getItem(TZ_KEY) || Intl.DateTimeFormat().resolvedOptions().timeZone; }
 
   const INTERVAL_LABELS = {
     '10min': '10 min', '30min': '30 min',
@@ -1899,7 +2082,7 @@
       </div>
       <div class="form-field">
         <label class="form-label" for="edit_dueDate">Due Date</label>
-        <input id="edit_dueDate" class="form-input" type="date" value="${esc(t.dueDate || '')}">
+        ${DP.field('edit_dueDate', t.dueDate || '')}
       </div>
       <div class="form-field">
         <label class="form-label" for="edit_priority">Priority</label>
@@ -2060,6 +2243,9 @@
                 }).join('')}
           </div>
         </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:14px;text-align:right">
+        🌐 Times shown in ${getUserTz().replace(/_/g,' ')}
       </div>`;
   }
 
@@ -2251,7 +2437,7 @@
         </div>
         <div class="form-field">
           <label class="form-label" for="fieldDue">Due Date</label>
-          <input id="fieldDue" name="dueDate" class="form-input" type="date">
+          ${DP.field('fieldDue', '', 'dueDate')}
         </div>
         <div class="form-field">
           <label class="form-label" for="fieldStatus">Status</label>
@@ -2947,7 +3133,7 @@
       </div>
       <div class="form-field">
         <label class="form-label" for="rc_startDate">Start Date</label>
-        <input id="rc_startDate" class="form-input" type="date" value="${esc(v('startDate', new Date().toISOString().split('T')[0]))}">
+        ${DP.field('rc_startDate', v('startDate', new Date().toISOString().split('T')[0]))}
       </div>
       <div class="form-field">
         <div class="form-label">Auto-assign Reminder (optional)</div>
@@ -3442,7 +3628,7 @@
       </div>
       <div class="form-field">
         <label class="form-label" for="pt_due">Due Date</label>
-        <input id="pt_due" class="form-input" type="date" value="${esc(t.dueDate||'')}">
+        ${DP.field('pt_due', t.dueDate || '')}
       </div>
       <div class="form-field">
         <div class="form-label">Priority</div>

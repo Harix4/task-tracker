@@ -1,8 +1,18 @@
-const { Redis } = require('@upstash/redis');
+const { getRedis } = require('./redis-client');
 const notion   = require('./notion');
 const telegram = require('./telegram');
 const team     = require('./team');
 const personal = require('./personal');
+const auth     = require('./auth');
+
+// Format current time in a given IANA timezone, e.g. "9:05 AM"
+function localTimeStr(tz) {
+  try {
+    return new Date().toLocaleTimeString('en-US', {
+      timeZone: tz || 'UTC', hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  } catch { return ''; }
+}
 
 const INTERVAL_LABELS = {
   '10min': '10 minutes', '30min': '30 minutes',
@@ -17,9 +27,9 @@ const INTERVAL_MINUTES = {
   '8hr':   480,
 };
 
-const redis = new Redis({
-  url:   process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+// Lazy accessor so the client is created after dotenv has loaded
+const redis = new Proxy({}, {
+  get: (_, prop) => (...args) => getRedis()[prop](...args),
 });
 
 const TEAM_PREFIX     = 'reminder:';
@@ -100,9 +110,15 @@ async function fireTeam(r) {
       return;
     }
 
-    // Normal reminder to group
+    // Normal reminder to group — include local time for each assignee's timezone
+    const tzLines = [];
+    for (const name of (assignees || [])) {
+      const tz = await auth.getTimezone(name).catch(() => null);
+      if (tz && tz !== 'UTC') tzLines.push(`${name}: ${localTimeStr(tz)}`);
+    }
+    const tzNote = tzLines.length ? `\nLocal times: ${tzLines.join(' · ')}` : '';
     await telegram.sendMessage(
-      buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }),
+      buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }) + tzNote,
       GROUP
     );
   } catch (err) {
@@ -166,6 +182,8 @@ async function firePersonal(r) {
       return;
     }
 
+    const tz    = await auth.getTimezone(r.username);
+    const tStr  = localTimeStr(tz);
     const today = new Date().toISOString().split('T')[0];
 
     if (task.dueDate && task.dueDate < today) {
@@ -173,6 +191,7 @@ async function firePersonal(r) {
       await telegram.sendMessage(
         `🚨 *OVERDUE (Personal): ${task.name}*\n` +
         `Was due: ${task.dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
+        `Your time: ${tStr}\n` +
         `Please complete this task.`,
         chatId
       );
@@ -181,6 +200,7 @@ async function firePersonal(r) {
         `⏰ *Personal Reminder: ${task.name}*\n` +
         `Due: ${task.dueDate || 'No due date'}\n` +
         `Priority: ${task.priority || 'Not set'}\n` +
+        `Your time: ${tStr}\n` +
         `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`,
         chatId
       );

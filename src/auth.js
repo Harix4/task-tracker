@@ -1,10 +1,9 @@
 const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
-const { Redis } = require('@upstash/redis');
+const { getRedis } = require('./redis-client');
 
-const redis = new Redis({
-  url:   process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+const redis = new Proxy({}, {
+  get: (_, prop) => (...args) => getRedis()[prop](...args),
 });
 
 const JWT_SECRET  = process.env.JWT_SECRET || 'taskr-dev-secret-change-in-prod';
@@ -63,6 +62,18 @@ async function setPin(username, pin) {
   await redis.set(pinKey(username), hashPin(String(pin)));
 }
 
+// ── Timezone ──────────────────────────────────────────────────────────────────
+
+async function saveTimezone(username, tz) {
+  if (!tz || typeof tz !== 'string') return;
+  await redis.set(`auth:tz:${username}`, tz);
+}
+
+async function getTimezone(username) {
+  const tz = await redis.get(`auth:tz:${username}`);
+  return (tz && typeof tz === 'string') ? tz : 'UTC';
+}
+
 // ── Members ───────────────────────────────────────────────────────────────────
 
 function getMember(username) {
@@ -114,6 +125,7 @@ module.exports = {
   MEMBERS, DEFAULT_PINS,
   isPinsInitialized, initDefaultPins,
   verifyPin, setPin,
+  saveTimezone, getTimezone,
   getMember, createToken, verifyToken,
   requireAuth, requireAdmin, optionalAuth,
 };

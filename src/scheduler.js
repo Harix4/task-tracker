@@ -192,23 +192,35 @@ async function generateRecurringTasks() {
 
 // ── Scheduler setup ─────────────────────────────────────────────────────────
 
-function startScheduler() {
-  // Check reminders every 10 minutes
+const auth = require('./auth');
+
+async function getAdminTz() {
+  // Admin is Harihar Singh; fall back to UTC if not set
+  try { return await auth.getTimezone('Harihar Singh'); }
+  catch { return 'UTC'; }
+}
+
+async function startScheduler() {
+  const adminTz = await getAdminTz();
+  const tzOpts  = { timezone: adminTz };
+  console.log(`[scheduler] Admin timezone: ${adminTz}`);
+
+  // Check reminders every 10 minutes (UTC — interval, not wall clock)
   cron.schedule('*/10 * * * *', () => reminders.checkAndFire().catch(console.error));
 
-  // Generate recurring tasks — 6am every day
-  cron.schedule('0 6 * * *', () => generateRecurringTasks().catch(console.error));
+  // Generate recurring tasks — 6am in admin's timezone
+  cron.schedule('0 6 * * *', () => generateRecurringTasks().catch(console.error), tzOpts);
 
-  // Daily digest — every day at 9am
-  cron.schedule('0 9 * * *', () => sendDailyDigest().catch(console.error));
+  // Daily digest — 9am in admin's timezone
+  cron.schedule('0 9 * * *', () => sendDailyDigest().catch(console.error), tzOpts);
 
-  // Overdue alert — 6pm every day
-  cron.schedule('0 18 * * *', () => sendOverdueAlert().catch(console.error));
+  // Overdue alert — 6pm in admin's timezone
+  cron.schedule('0 18 * * *', () => sendOverdueAlert().catch(console.error), tzOpts);
 
-  // Weekly report — Monday 9am
-  cron.schedule('0 9 * * 1', () => sendWeeklyReport().catch(console.error));
+  // Weekly report — Monday 9am in admin's timezone
+  cron.schedule('0 9 * * 1', () => sendWeeklyReport().catch(console.error), tzOpts);
 
-  console.log('[scheduler] Jobs registered: recurring@6am · reminders@10min · digest@9am · overdue@6pm · report@Mon9am');
+  console.log(`[scheduler] Jobs registered: recurring@6am · digest@9am · overdue@6pm · report@Mon9am (all in ${adminTz})`);
 }
 
 module.exports = { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport };

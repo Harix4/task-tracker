@@ -62,14 +62,21 @@ app.get('/auth/members', (req, res) => {
 
 // Login: POST { username, pin } → { token }
 app.post('/auth/login', async (req, res) => {
-  const { username, pin } = req.body;
+  const { username, pin, timezone } = req.body;
   if (!username || !pin) return res.status(400).json({ error: 'username and pin required' });
   try {
     const ok = await auth.verifyPin(username, String(pin));
     if (!ok) return res.status(401).json({ error: 'Incorrect PIN' });
     const token = auth.createToken(username);
     if (!token) return res.status(400).json({ error: 'Unknown member' });
-    res.json({ token });
+    // Persist the user's browser timezone for reminders / scheduling
+    if (timezone) {
+      auth.saveTimezone(username, timezone).catch(err =>
+        console.warn('[auth] saveTimezone:', err.message)
+      );
+    }
+    const resolvedTz = timezone || await auth.getTimezone(username);
+    res.json({ token, timezone: resolvedTz });
   } catch (err) {
     console.error('[POST /auth/login]', err.message);
     res.status(500).json({ error: err.message });
@@ -608,7 +615,7 @@ async function start() {
   tasksMeta.load();
   recurring.load();
   await reminders.load();
-  startScheduler();
+  await startScheduler();
 
   app.listen(port, async () => {
     console.log(`[server] Taskr listening on http://localhost:${port}`);
