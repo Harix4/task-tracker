@@ -22,4 +22,10 @@ function getAll() {
   return DATA;
 }
 
-module.exports = { lookup, tag, getAll };
+// Return the default IANA timezone for a team member, or null if not set
+function getTz(name) {
+  const member = lookup(name);
+  return (member && member.tz) ? member.tz : null;
+}
+
+module.exports = { lookup, tag, getAll, getTz };

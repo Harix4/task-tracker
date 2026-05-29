@@ -1340,6 +1340,93 @@
     }
     .kbd-hint.hidden { opacity: 0; }
 
+    /* ── First-time setup screen ────────────────────────────────── */
+    .setup-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .setup-card {
+      width: 100%; max-width: 420px; padding: 0 28px; text-align: center;
+    }
+    .setup-logo {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.03em;
+      color: var(--text); margin-bottom: 28px; opacity: 0.5;
+    }
+    .setup-progress {
+      display: flex; gap: 7px; justify-content: center; margin-bottom: 28px;
+    }
+    .setup-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--border); transition: background 0.25s, transform 0.25s;
+    }
+    .setup-dot.active { background: var(--blue); transform: scale(1.2); }
+    .setup-title {
+      font-size: 24px; font-weight: 700; letter-spacing: -0.03em;
+      color: var(--text); margin-bottom: 10px; line-height: 1.25;
+    }
+    .setup-sub {
+      font-size: 14.5px; color: var(--muted); margin-bottom: 28px;
+      line-height: 1.55;
+    }
+    .setup-btn {
+      display: block; width: 100%; height: 48px; border-radius: 12px;
+      background: var(--blue); color: #fff; border: none;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      font-family: var(--font); transition: opacity 0.1s; margin-top: 10px;
+    }
+    .setup-btn:hover { opacity: 0.85; }
+    .setup-btn-ghost {
+      display: block; width: 100%; height: 44px; border-radius: 12px;
+      background: none; color: var(--muted); border: 1px solid var(--border);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      font-family: var(--font); transition: background 0.1s, color 0.1s;
+      margin-top: 8px;
+    }
+    .setup-btn-ghost:hover { background: var(--nav-hover); color: var(--text); }
+    .setup-detect-btn {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      width: 100%; height: 40px; border-radius: 10px;
+      background: var(--field-bg); color: var(--text); border: 1px solid var(--border);
+      font-size: 13.5px; font-weight: 500; cursor: pointer;
+      font-family: var(--font); transition: background 0.1s; margin-bottom: 10px;
+    }
+    .setup-detect-btn:hover { background: var(--nav-hover); }
+    .setup-tz-select {
+      display: block; width: 100%; height: 44px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--field-bg); font-family: var(--font);
+      font-size: 14px; color: var(--text); outline: none; cursor: pointer;
+      margin-bottom: 6px; appearance: none;
+    }
+    .setup-tz-select:focus { border-color: var(--blue); }
+    .setup-live-time {
+      font-size: 36px; font-weight: 700; letter-spacing: -0.03em;
+      color: var(--text); margin: 16px 0 4px;
+    }
+    .setup-tz-label {
+      font-size: 12px; color: var(--muted); margin-bottom: 18px;
+    }
+    .setup-tg-card {
+      background: var(--field-bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; align-items: flex-start; gap: 14px;
+      text-align: left; margin-bottom: 10px;
+    }
+    .setup-tg-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--blue); color: #fff;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .setup-tg-text { font-size: 13.5px; color: var(--text); line-height: 1.5; }
+    .setup-tg-link {
+      color: var(--blue); font-weight: 600;
+      text-decoration: none; cursor: pointer;
+    }
+    .setup-tg-link:hover { text-decoration: underline; }
+
     /* ── Due-date relative label ────────────────────────────────── */
     .dd-today    { color: var(--orange); font-weight: 600; }
     .dd-tomorrow { color: #fbbf24; font-weight: 500; }
@@ -1368,6 +1455,11 @@
       <button class="pin-back-btn" onclick="backToMembers()">← Back</button>
     </div>
   </div>
+</div>
+
+<!-- ── First-time setup screen ────────────────────────────────────────────── -->
+<div class="setup-screen" id="setupScreen" style="display:none">
+  <div class="setup-card" id="setupCard"></div>
 </div>
 
 <!-- ── App ───────────────────────────────────────────────────────────────── -->
@@ -1646,10 +1738,16 @@
       state.user = parseJWT(data.token);
       // Persist timezone locally
       localStorage.setItem(TZ_KEY, data.timezone || timezone);
-      showApp();
-      renderNav();
-      renderSidebarUser();
-      await fetchAll();
+
+      if (data.setupRequired) {
+        _setupTz = data.timezone || timezone;
+        await showSetupFlow();
+      } else {
+        showApp();
+        renderNav();
+        renderSidebarUser();
+        await fetchAll();
+      }
     } catch (err) {
       document.getElementById('pinError').textContent = 'Login failed';
       pinDigits = [];
@@ -1766,6 +1864,178 @@
     btn.innerHTML = isDark
       ? `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><circle cx="10" cy="10" r="3.5"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"/></svg>`
       : `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M17.5 11.5A8 8 0 018.5 2.5a8 8 0 000 15 8 8 0 009-6z"/></svg>`;
+  }
+
+  // ── First-time setup flow ─────────────────────────────────────────────────
+  const SETUP_DONE_KEY = 'taskr_setup_done';
+
+  const TIMEZONE_OPTIONS = [
+    { region: 'Americas', zones: [
+      { label: 'Los Angeles (PST/PDT)',  tz: 'America/Los_Angeles' },
+      { label: 'New York (EST/EDT)',      tz: 'America/New_York' },
+      { label: 'Chicago (CST/CDT)',       tz: 'America/Chicago' },
+      { label: 'Denver (MST/MDT)',        tz: 'America/Denver' },
+    ]},
+    { region: 'Europe', zones: [
+      { label: 'London (GMT/BST)',             tz: 'Europe/London' },
+      { label: 'Paris / Berlin (CET/CEST)',    tz: 'Europe/Paris' },
+      { label: 'Tbilisi (GET)',                tz: 'Asia/Tbilisi' },
+      { label: 'Moscow (MSK)',                 tz: 'Europe/Moscow' },
+    ]},
+    { region: 'Africa', zones: [
+      { label: 'Nairobi / Kenya (EAT)', tz: 'Africa/Nairobi' },
+    ]},
+    { region: 'Asia & Pacific', zones: [
+      { label: 'Dubai (GST)',       tz: 'Asia/Dubai' },
+      { label: 'Mumbai (IST)',      tz: 'Asia/Kolkata' },
+      { label: 'Bangkok (ICT)',     tz: 'Asia/Bangkok' },
+      { label: 'Singapore (SGT)',   tz: 'Asia/Singapore' },
+      { label: 'Tokyo (JST)',       tz: 'Asia/Tokyo' },
+      { label: 'Seoul (KST)',       tz: 'Asia/Seoul' },
+    ]},
+  ];
+
+  let _setupStep = 1;
+  let _setupTz   = '';
+  let _setupBot  = '';
+  let _setupClock = null;
+
+  async function showSetupFlow() {
+    document.getElementById('loginScreen').style.display  = 'none';
+    document.getElementById('appLayout').style.display    = 'none';
+    document.getElementById('setupScreen').style.display  = 'flex';
+    _setupStep = 1;
+    _setupTz   = getUserTz();
+    // Fetch bot username in background for step 3
+    fetch('/auth/bot').then(r => r.json()).then(d => { _setupBot = d.username || ''; }).catch(() => {});
+    _renderSetup();
+  }
+
+  function _renderSetup() {
+    const card = document.getElementById('setupCard');
+    if (!card) return;
+    if (_setupClock) { clearInterval(_setupClock); _setupClock = null; }
+    if (_setupStep === 1) card.innerHTML = _setupHtml1();
+    if (_setupStep === 2) { card.innerHTML = _setupHtml2(); _startSetupClock(); }
+    if (_setupStep === 3) card.innerHTML = _setupHtml3();
+  }
+
+  function _setupDots(cur) {
+    return `<div class="setup-progress">
+      ${[1,2,3].map(i => `<div class="setup-dot${i<=cur?' active':''}"></div>`).join('')}
+    </div>`;
+  }
+
+  function _setupHtml1() {
+    const first = (state.user?.displayName || state.user?.username || 'there').split(' ')[0];
+    return `
+      <div class="setup-logo">Taskr</div>
+      ${_setupDots(1)}
+      <div class="setup-title">Welcome to Klone HQ, ${esc(first)}! 👋</div>
+      <div class="setup-sub">Let's take 30 seconds to personalise your account so you get reminders at the right time.</div>
+      <button class="setup-btn" onclick="_setupNext()">Get Started →</button>`;
+  }
+
+  function _setupHtml2() {
+    const opts = TIMEZONE_OPTIONS.map(g =>
+      `<optgroup label="${esc(g.region)}">
+        ${g.zones.map(z =>
+          `<option value="${esc(z.tz)}"${z.tz===_setupTz?' selected':''}>${esc(z.label)}</option>`
+        ).join('')}
+       </optgroup>`
+    ).join('');
+
+    return `
+      ${_setupDots(2)}
+      <div class="setup-title">Where are you based?</div>
+      <div class="setup-sub">We use this to send reminders at the right time for you.</div>
+      <button class="setup-detect-btn" onclick="_setupDetect()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2"/><circle cx="7" cy="7" r="1.8" fill="currentColor" stroke="none"/></svg>
+        Detect my timezone automatically
+      </button>
+      <select class="setup-tz-select" id="setupTzSel" onchange="_setupTzChange(this.value)">${opts}</select>
+      <div class="setup-live-time" id="setupClock">—</div>
+      <div class="setup-tz-label" id="setupTzLabel"></div>
+      <button class="setup-btn" onclick="_setupNext()">Confirm timezone →</button>`;
+  }
+
+  function _setupHtml3() {
+    const link = _setupBot
+      ? `<a class="setup-tg-link" href="https://t.me/${esc(_setupBot)}" target="_blank">@${esc(_setupBot)}</a>`
+      : `your Taskr bot`;
+    return `
+      ${_setupDots(3)}
+      <div class="setup-title">Get Telegram reminders</div>
+      <div class="setup-sub">Receive personal task reminders directly in your DMs.</div>
+      <div class="setup-tg-card">
+        <div class="setup-tg-num">1</div>
+        <div class="setup-tg-text">Open ${link} on Telegram</div>
+      </div>
+      <div class="setup-tg-card">
+        <div class="setup-tg-num">2</div>
+        <div class="setup-tg-text">Send the message <strong>/register</strong></div>
+      </div>
+      <div class="setup-tg-card">
+        <div class="setup-tg-num">3</div>
+        <div class="setup-tg-text">You'll receive task reminders as private DMs in your timezone</div>
+      </div>
+      <button class="setup-btn" onclick="_setupFinish()">✓ I've done this</button>
+      <button class="setup-btn-ghost" onclick="_setupFinish()">Skip for now</button>`;
+  }
+
+  function _setupDetect() {
+    _setupTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const sel = document.getElementById('setupTzSel');
+    if (sel) sel.value = _setupTz;
+    _updateSetupClock();
+  }
+
+  function _setupTzChange(val) {
+    _setupTz = val;
+    _updateSetupClock();
+  }
+
+  function _startSetupClock() {
+    _updateSetupClock();
+    _setupClock = setInterval(_updateSetupClock, 1000);
+  }
+
+  function _updateSetupClock() {
+    const el = document.getElementById('setupClock');
+    const lb = document.getElementById('setupTzLabel');
+    const tz = _setupTz || 'UTC';
+    if (!el) return;
+    try {
+      el.textContent = new Date().toLocaleTimeString('en-US', {
+        timeZone: tz, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+      });
+      if (lb) lb.textContent = tz.replace(/_/g, ' ');
+    } catch { el.textContent = '—'; }
+  }
+
+  function _setupNext() {
+    _setupStep++;
+    _renderSetup();
+  }
+
+  async function _setupFinish() {
+    if (_setupClock) { clearInterval(_setupClock); _setupClock = null; }
+    try {
+      await authFetch('/auth/setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: _setupTz }),
+      });
+      localStorage.setItem(TZ_KEY, _setupTz);
+      localStorage.setItem(SETUP_DONE_KEY, '1');
+    } catch (err) {
+      console.error('[setup] save failed:', err.message);
+    }
+    document.getElementById('setupScreen').style.display = 'none';
+    showApp();
+    renderNav();
+    renderSidebarUser();
+    await fetchAll();
   }
 
   // ── Custom date picker ────────────────────────────────────────────────────

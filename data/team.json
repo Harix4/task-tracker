@@ -1,7 +1,7 @@
 [
-  { "name": "Gelika", "telegram": "Gelika" },
-  { "name": "Irakli", "telegram": "n1tchvar" },
-  { "name": "N1ka", "telegram": "Abduu_19" },
-  { "name": "Cole", "telegram": "COLE4L" },
-  { "name": "Harihar Singh", "telegram": "harixfour" }
+  { "name": "Gelika",        "telegram": "Gelika",    "chatId": "", "tz": "Asia/Tbilisi" },
+  { "name": "Irakli",        "telegram": "n1tchvar",  "chatId": "", "tz": "Asia/Tbilisi" },
+  { "name": "N1ka",          "telegram": "Abduu_19",  "chatId": "", "tz": "Asia/Tbilisi" },
+  { "name": "Cole",          "telegram": "COLE4L",    "chatId": "", "tz": "America/New_York" },
+  { "name": "Harihar Singh", "telegram": "harixfour", "chatId": "", "tz": "America/Los_Angeles" }
 ]

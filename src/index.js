@@ -75,10 +75,35 @@ app.post('/auth/login', async (req, res) => {
         console.warn('[auth] saveTimezone:', err.message)
       );
     }
-    const resolvedTz = timezone || await auth.getTimezone(username);
-    res.json({ token, timezone: resolvedTz });
+    const resolvedTz  = timezone || await auth.getTimezone(username);
+    const member      = auth.getMember(username);
+    const isAdmin     = member?.role === 'admin';
+    // Admin skips setup; everyone else sees it once
+    const setupDone   = isAdmin || await auth.isSetupComplete(username);
+    res.json({ token, timezone: resolvedTz, setupRequired: !setupDone });
   } catch (err) {
     console.error('[POST /auth/login]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Return the bot's Telegram username (used by setup screen)
+app.get('/auth/bot', async (req, res) => {
+  try {
+    const username = await telegram.getBotUsername();
+    res.json({ username });
+  } catch { res.json({ username: '' }); }
+});
+
+// Mark first-time setup as complete + persist chosen timezone
+app.post('/auth/setup', auth.requireAuth, async (req, res) => {
+  try {
+    const { timezone } = req.body;
+    if (timezone) await auth.saveTimezone(req.user.username, timezone);
+    await auth.markSetupComplete(req.user.username);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[POST /auth/setup]', err.message);
     res.status(500).json({ error: err.message });
   }
 });

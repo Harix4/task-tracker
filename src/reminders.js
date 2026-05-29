@@ -181,11 +181,26 @@ async function firePersonal(r) {
     const tStr  = localTimeStr(tz);
     const today = new Date().toISOString().split('T')[0];
 
+    // Format due date in the user's local timezone
+    function fmtDue(dateStr) {
+      if (!dateStr) return 'No due date';
+      try {
+        return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+          timeZone: tz, month: 'short', day: 'numeric', year: 'numeric',
+        });
+      } catch { return dateStr; }
+    }
+
+    // Strip emoji prefix from priority value (e.g. "🔴 High" → "High")
+    const priorityLabel = task.priority
+      ? task.priority.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim()
+      : 'Not set';
+
     if (task.dueDate && task.dueDate < today) {
-      const days = Math.floor((Date.now() - new Date(task.dueDate).getTime()) / 86400000);
+      const days = Math.floor((Date.now() - new Date(task.dueDate + 'T12:00:00').getTime()) / 86400000);
       await telegram.sendMessage(
         `🚨 *OVERDUE (Personal): ${task.name}*\n` +
-        `Was due: ${task.dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
+        `Was due: ${fmtDue(task.dueDate)} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
         `Your time: ${tStr}\n` +
         `Please complete this task.`,
         chatId
@@ -193,8 +208,8 @@ async function firePersonal(r) {
     } else {
       await telegram.sendMessage(
         `⏰ *Personal Reminder: ${task.name}*\n` +
-        `Due: ${task.dueDate || 'No due date'}\n` +
-        `Priority: ${task.priority || 'Not set'}\n` +
+        `Due: ${fmtDue(task.dueDate)}\n` +
+        `Priority: ${priorityLabel}\n` +
         `Your time: ${tStr}\n` +
         `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`,
         chatId

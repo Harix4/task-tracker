@@ -39,4 +39,14 @@ async function setWebhook(url) {
   return telegramRequest('setWebhook', { url });
 }
 
-module.exports = { sendMessage, setWebhook };
+let _botUsername = null;
+async function getBotUsername() {
+  if (_botUsername) return _botUsername;
+  try {
+    const res = await telegramRequest('getMe', {});
+    _botUsername = res?.result?.username || '';
+    return _botUsername;
+  } catch { return ''; }
+}
+
+module.exports = { sendMessage, setWebhook, getBotUsername };

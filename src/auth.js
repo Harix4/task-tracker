@@ -67,7 +67,21 @@ async function saveTimezone(username, tz) {
 
 async function getTimezone(username) {
   const tz = await redis.get(`auth:tz:${username}`);
-  return (tz && typeof tz === 'string') ? tz : 'UTC';
+  if (tz && typeof tz === 'string') return tz;
+  // Fall back to the default tz in team.json rather than UTC
+  const team = require('./team');
+  return team.getTz(username) || 'UTC';
+}
+
+// ── First-time setup flag ─────────────────────────────────────────────────────
+
+async function isSetupComplete(username) {
+  const val = await redis.get(`auth:setup:${username}`);
+  return !!val;
+}
+
+async function markSetupComplete(username) {
+  await redis.set(`auth:setup:${username}`, '1');
 }
 
 // ── Members ───────────────────────────────────────────────────────────────────
@@ -122,6 +136,7 @@ module.exports = {
   isPinsInitialized, initDefaultPins,
   verifyPin, setPin,
   saveTimezone, getTimezone,
+  isSetupComplete, markSetupComplete,
   getMember, createToken, verifyToken,
   requireAuth, requireAdmin, optionalAuth,
 };
