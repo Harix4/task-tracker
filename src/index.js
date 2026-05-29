@@ -23,8 +23,8 @@ const REQUIRED_ENV = [
   'NOTION_TASKS_DB_ID',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_CHAT_ID',
-  'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN',
+  // UPSTASH_REDIS_REST_URL / TOKEN are optional locally; the redis-client module
+  // falls back to an in-memory stub when they are absent.
 ];
 
 for (const key of REQUIRED_ENV) {
@@ -230,7 +230,8 @@ app.get('/tasks', auth.requireAuth, async (req, res) => {
     }));
     if (req.user.role === 'member') {
       const me = req.user.username;
-      tasks = tasks.filter(t => !t.assignees.length || t.assignees.includes(me));
+      // Members see ONLY tasks explicitly assigned to them — no unassigned tasks
+      tasks = tasks.filter(t => (t.assignees || []).includes(me));
     }
     res.json({ tasks, total: tasks.length });
   } catch (err) {
@@ -503,7 +504,7 @@ app.get('/archive', auth.requireAuth, (req, res) => {
   let tasks = archive.getAll();
   if (req.user.role === 'member') {
     const me = req.user.username;
-    tasks = tasks.filter(t => !t.assignee || t.assignee === me);
+    tasks = tasks.filter(t => t.assignee === me);
   }
   res.json({ tasks });
 });

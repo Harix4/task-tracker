@@ -1763,10 +1763,10 @@
       ]);
       if (tr?.tasks) {
         const all = tr.tasks.filter(t => t.status !== 'Done');
-        // Members only see tasks assigned to them or unassigned
+        // Members see ONLY tasks explicitly assigned to them
         if (state.user?.role === 'member') {
           const me = state.user.username;
-          state.tasks = all.filter(t => !t.assignees?.length || t.assignees.includes(me));
+          state.tasks = all.filter(t => (t.assignees || []).includes(me));
         } else {
           state.tasks = all;
         }
@@ -3409,57 +3409,93 @@
     document.getElementById('panelTitle').textContent = task ? 'Personal Task' : 'New Personal Task';
     document.getElementById('panelBody').innerHTML    = personalPanelContent(task);
     document.getElementById('panel').classList.add('open');
-    document.getElementById('overlay').classList.add('active');
+    document.getElementById('overlay').classList.add('show');
   }
 
   function personalPanelContent(task) {
-    const t = task || {};
+    const t      = task || {};
+    const prio   = t.priority || '';
+    const remind = t.reminderInterval || '';
+
+    // Priority — segmented buttons matching team task panel style
+    const PRIO_OPTS = [
+      { val: '🔴 High',   label: 'High',   cls: 's-blocked' },
+      { val: '🟡 Medium', label: 'Medium', cls: 's-review'  },
+      { val: '🟢 Low',    label: 'Low',    cls: 's-done'    },
+    ];
+    const prioSeg = PRIO_OPTS.map(({ val, label, cls }) =>
+      `<button type="button" class="status-seg-btn ${cls}${prio === val ? ' seg-active' : ''}"
+        data-prio="${esc(val)}" onclick="ptSetPrio('${esc(val)}')">${label}</button>`
+    ).join('');
+
+    // Reminder — pill buttons matching team task panel style
+    const reminderPills = REMINDER_OPTIONS.map(([key, label]) =>
+      `<button type="button" class="rem-pill${remind === key ? ' rem-pill-active' : ''}"
+        data-key="${esc(key)}" onclick="ptToggleReminder('${esc(key)}')">${label}</button>`
+    ).join('');
+
     return `
-      <div class="ptask-form-field">
-        <label class="ptask-label">Task Name</label>
-        <input id="pt_name" class="form-input" type="text" value="${esc(t.name||'')}" placeholder="What needs to be done?">
+      <div class="form-field">
+        <label class="form-label" for="pt_name">Task Name</label>
+        <input id="pt_name" class="form-input" type="text" value="${esc(t.name||'')}"
+          placeholder="What needs to be done?">
       </div>
-      <div class="ptask-form-field">
-        <label class="ptask-label">Due Date</label>
+      <div class="form-field">
+        <label class="form-label" for="pt_due">Due Date</label>
         <input id="pt_due" class="form-input" type="date" value="${esc(t.dueDate||'')}">
       </div>
-      <div class="ptask-form-field">
-        <label class="ptask-label">Priority</label>
-        <select id="pt_prio" class="form-input">
-          <option value="">—</option>
-          ${['🔴 High','🟡 Medium','🟢 Low'].map(p => {
-            const label = p.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim();
-            return `<option value="${esc(p)}"${t.priority===p?' selected':''}>${label}</option>`;
-          }).join('')}
-        </select>
+      <div class="form-field">
+        <div class="form-label">Priority</div>
+        <input type="hidden" id="pt_prio" value="${esc(prio)}">
+        <div class="status-seg">${prioSeg}</div>
       </div>
-      <div class="ptask-form-field">
-        <label class="ptask-label">Reminder</label>
-        <select id="pt_reminder" class="form-input">
-          <option value="">None</option>
-          ${Object.entries(INTERVAL_LABELS).map(([k,v]) =>
-            `<option value="${k}"${t.reminderInterval===k?' selected':''}>${v}</option>`
-          ).join('')}
-        </select>
+      <div class="form-field">
+        <div class="form-label">Reminder</div>
+        <div class="rem-pills" id="pt_reminder_pills">${reminderPills}</div>
       </div>
-      <div class="ptask-form-field">
-        <label class="ptask-label">Notes</label>
-        <textarea id="pt_notes" class="form-input" rows="4" style="resize:vertical">${esc(t.notes||'')}</textarea>
+      <div class="form-field">
+        <label class="form-label" for="pt_notes">Notes</label>
+        <textarea id="pt_notes" class="form-input res-textarea" style="min-height:100px"
+          placeholder="Add notes, context, or reminders...">${esc(t.notes||'')}</textarea>
       </div>
-      <button class="panel-save-btn" onclick="savePersonalTask()">${task ? 'Save' : 'Create Task'}</button>
-      ${task ? `<button class="modal-cancel-btn" style="margin-top:8px" onclick="deletePersonalTask('${esc(task.id)}')">Delete Task</button>` : ''}
+      <button type="button" id="ptSaveBtn" class="panel-save-btn" onclick="savePersonalTask()">
+        ${task ? 'Save' : 'Create Task'}
+      </button>
+      ${task ? `<button class="modal-cancel-btn" style="margin-top:8px"
+        onclick="deletePersonalTask('${esc(task.id)}')">Delete Task</button>` : ''}
     `;
   }
 
+  function ptSetPrio(val) {
+    document.getElementById('pt_prio').value = val;
+    document.querySelectorAll('.status-seg .status-seg-btn[data-prio]').forEach(btn =>
+      btn.classList.toggle('seg-active', btn.dataset.prio === val)
+    );
+  }
+
+  function ptToggleReminder(key) {
+    const pills = document.querySelectorAll('#pt_reminder_pills .rem-pill');
+    pills.forEach(p => {
+      if (p.dataset.key === key) {
+        // clicking active pill deselects it
+        const wasActive = p.classList.contains('rem-pill-active');
+        pills.forEach(x => x.classList.remove('rem-pill-active'));
+        if (!wasActive) p.classList.add('rem-pill-active');
+      }
+    });
+  }
+
   async function savePersonalTask() {
-    const name     = document.getElementById('pt_name')?.value.trim();
+    const name = document.getElementById('pt_name')?.value.trim();
     if (!name) return;
+
+    const activePill = document.querySelector('#pt_reminder_pills .rem-pill-active');
     const payload = {
       name,
-      dueDate:          document.getElementById('pt_due')?.value      || null,
-      priority:         document.getElementById('pt_prio')?.value     || null,
-      reminderInterval: document.getElementById('pt_reminder')?.value || null,
-      notes:            document.getElementById('pt_notes')?.value    || '',
+      dueDate:          document.getElementById('pt_due')?.value  || null,
+      priority:         document.getElementById('pt_prio')?.value || null,
+      reminderInterval: activePill ? activePill.dataset.key       : null,
+      notes:            document.getElementById('pt_notes')?.value || '',
     };
     try {
       if (personalPanelId) {
