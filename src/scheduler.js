@@ -190,6 +190,56 @@ async function generateRecurringTasks() {
   }
 }
 
+// ── Day-before reminder ──────────────────────────────────────────────────────
+
+async function sendDayBeforeReminders() {
+  console.log('[scheduler] Sending day-before reminders');
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const tomorrow = d.toISOString().split('T')[0];
+
+  const tasks = await notion.queryTasksDatabase({
+    and: [
+      { property: 'Due date', date: { equals: tomorrow } },
+      { property: 'Status', status: { does_not_equal: 'Done' } },
+    ],
+  });
+  if (!tasks.length) return;
+
+  const { personal } = require('./personal');
+  const GROUP = process.env.TELEGRAM_CHAT_ID;
+
+  for (const task of tasks) {
+    const taskName  = notion.getTaskName(task);
+    const dueDate   = notion.getDueDate(task);
+    const assignees = notion.getAssigneeNames(task);
+    const status    = notion.getStatus(task);
+    const tags      = assignees.length ? assignees.map(n => team.tag(n)).join(' ') : 'Unassigned';
+
+    // Group chat notification
+    telegram.sendMessage(
+      `📅 *Due tomorrow: ${taskName}*\n` +
+      `Assigned to: ${tags}\n` +
+      `Due: ${dueDate}\n` +
+      `Status: ${status || 'No status'}`,
+      GROUP
+    ).catch(console.error);
+
+    // Personal DM to each assignee
+    for (const assignee of assignees) {
+      const member = team.lookup(assignee);
+      if (!member) continue;
+      const chatId = await require('./personal').getChatId(member.telegram);
+      if (!chatId) continue;
+      telegram.sendMessage(
+        `📅 *Heads up — ${taskName} is due tomorrow.*\n` +
+        `Make sure it's done by end of day.`,
+        chatId
+      ).catch(console.error);
+    }
+  }
+}
+
 // ── Scheduler setup ─────────────────────────────────────────────────────────
 
 const auth = require('./auth');
@@ -220,7 +270,10 @@ async function startScheduler() {
   // Weekly report — Monday 9am in admin's timezone
   cron.schedule('0 9 * * 1', () => sendWeeklyReport().catch(console.error), tzOpts);
 
-  console.log(`[scheduler] Jobs registered: recurring@6am · digest@9am · overdue@6pm · report@Mon9am (all in ${adminTz})`);
+  // Day-before reminder — 8am in admin's timezone
+  cron.schedule('0 8 * * *', () => sendDayBeforeReminders().catch(console.error), tzOpts);
+
+  console.log(`[scheduler] Jobs registered: recurring@6am · digest@9am · overdue@6pm · report@Mon9am · day-before@8am (all in ${adminTz})`);
 }
 
 module.exports = { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport };

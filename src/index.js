@@ -15,6 +15,28 @@ const tasksMeta = require('./tasks-meta');
 const recurring = require('./recurring');
 const auth = require('./auth');
 const personal = require('./personal');
+const redis = require('./redis-client');
+
+// ── Redis helpers for comments + history ─────────────────────────────────────
+
+function parseR(raw) {
+  if (!raw) return null;
+  if (typeof raw === 'object') return raw;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function genCid() {
+  return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+}
+
+async function addTaskHistory(taskId, entry) {
+  const key     = `task:history:${taskId}`;
+  const raw     = await redis.get(key);
+  const history = parseR(raw) || [];
+  history.unshift({ id: genCid(), ...entry, at: new Date().toISOString() });
+  if (history.length > 100) history.length = 100;
+  await redis.set(key, history);
+}
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
@@ -294,6 +316,67 @@ app.post('/telegram-webhook', async (req, res) => {
   }
 });
 
+// ── Task Comments ─────────────────────────────────────────────────────────────
+
+app.get('/tasks/:id/comments', auth.requireAuth, async (req, res) => {
+  try {
+    const raw      = await redis.get(`task:comments:${req.params.id}`);
+    const comments = parseR(raw) || [];
+    res.json({ comments });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/tasks/:id/comments', auth.requireAuth, async (req, res) => {
+  const { text, taskName } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'Text required' });
+  try {
+    const key      = `task:comments:${req.params.id}`;
+    const raw      = await redis.get(key);
+    const comments = parseR(raw) || [];
+    const comment  = {
+      id:          genCid(),
+      author:      req.user.username,
+      displayName: req.user.displayName || req.user.username,
+      text:        text.trim(),
+      createdAt:   new Date().toISOString(),
+    };
+    comments.push(comment);
+    await redis.set(key, comments);
+
+    // Track in history
+    addTaskHistory(req.params.id, { action: 'comment_added', by: req.user.username, snippet: text.trim().slice(0, 80) }).catch(() => {});
+
+    // Telegram group notification
+    const author = req.user.displayName || req.user.username;
+    telegram.sendMessage(
+      `💬 *${author}* commented on *${taskName || 'a task'}*:\n${text.trim().slice(0, 200)}`,
+      process.env.TELEGRAM_CHAT_ID
+    ).catch(() => {});
+
+    res.json({ comment });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/tasks/:id/comments/:commentId', auth.requireAuth, async (req, res) => {
+  try {
+    const key      = `task:comments:${req.params.id}`;
+    const raw      = await redis.get(key);
+    const comments = (parseR(raw) || []).filter(c => c.id !== req.params.commentId);
+    await redis.set(key, comments);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Task History ──────────────────────────────────────────────────────────────
+
+app.get('/tasks/:id/history', auth.requireAuth, async (req, res) => {
+  try {
+    const raw     = await redis.get(`task:history:${req.params.id}`);
+    const history = parseR(raw) || [];
+    res.json({ history });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // Returns Notion workspace users for the assignee picker
 app.get('/users', async (req, res) => {
   try {
@@ -352,6 +435,9 @@ app.post('/tasks', auth.requireAdmin, async (req, res) => {
       lastEdited: page.last_edited_time,
     };
     res.status(201).json({ task });
+
+    // Track creation in history
+    addTaskHistory(task.id, { action: 'task_created', by: req.user.username }).catch(() => {});
 
     // Team task created → group chat only
     const assigneeNames = req.body.assigneeNames || [];
@@ -477,6 +563,21 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
         process.env.TELEGRAM_CHAT_ID
       ).catch(err => console.error('[telegram] task assigned:', err.message));
     }
+
+    // History tracking (fire-and-forget)
+    const actor = req.user.username;
+    if ('status' in body && body.status && body.status !== prev.status) {
+      if (body.status === 'Done')
+        addTaskHistory(id, { action: 'task_completed', by: actor }).catch(() => {});
+      else
+        addTaskHistory(id, { action: 'status_changed', from: prev.status || 'None', to: body.status, by: actor }).catch(() => {});
+    }
+    if ('dueDate' in body && body.dueDate !== prev.dueDate)
+      addTaskHistory(id, { action: 'due_date_changed', from: prev.dueDate || 'None', to: body.dueDate || 'None', by: actor }).catch(() => {});
+    if ('name' in body && body.name && body.name.trim() !== (prev.name || '').trim())
+      addTaskHistory(id, { action: 'name_changed', from: prev.name, to: body.name.trim(), by: actor }).catch(() => {});
+    if (assigneeNames.length && JSON.stringify([...assigneeNames].sort()) !== JSON.stringify([...prevAssignees].sort()))
+      addTaskHistory(id, { action: 'assignee_changed', from: prevAssignees, to: assigneeNames, by: actor }).catch(() => {});
   } catch (err) {
     console.error('[PATCH /tasks/:id]', err.message);
     res.status(500).json({ error: err.message });

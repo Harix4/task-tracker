@@ -1427,6 +1427,76 @@
     }
     .setup-tg-link:hover { text-decoration: underline; }
 
+    /* ── Comments ───────────────────────────────────────────────── */
+    .comments-list {
+      display: flex; flex-direction: column; gap: 12px;
+      margin-bottom: 12px; max-height: 280px; overflow-y: auto;
+    }
+    .comment-item {
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .comment-body { flex: 1; min-width: 0; }
+    .comment-header {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px;
+    }
+    .comment-author { font-size: 12.5px; font-weight: 600; color: var(--text); }
+    .comment-time   { font-size: 11px; color: var(--muted); }
+    .comment-text   { font-size: 13px; color: var(--text); line-height: 1.45; word-break: break-word; }
+    .comment-delete {
+      font-size: 11px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 0 3px; opacity: 0;
+      transition: opacity 0.1s, color 0.1s;
+    }
+    .comment-item:hover .comment-delete { opacity: 1; }
+    .comment-delete:hover { color: var(--red); }
+    .comment-input-wrap {
+      display: flex; gap: 8px; align-items: center;
+      padding-top: 10px; border-top: 1px solid var(--border);
+    }
+    .comment-input {
+      flex: 1; height: 36px; padding: 0 12px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--field-bg); font-family: var(--font);
+      font-size: 13px; color: var(--text); outline: none;
+      transition: border-color 0.12s;
+    }
+    .comment-input:focus { border-color: var(--blue); }
+    .comment-send-btn {
+      height: 36px; padding: 0 14px; border-radius: 10px;
+      background: var(--blue); color: #fff; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: var(--font); transition: opacity 0.1s; flex-shrink: 0;
+    }
+    .comment-send-btn:hover { opacity: 0.85; }
+
+    /* ── Activity / History ─────────────────────────────────────── */
+    .history-list {
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .history-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 8px 0; position: relative;
+    }
+    .history-item:not(:last-child)::before {
+      content: ''; position: absolute; left: 7px; top: 22px;
+      width: 1px; bottom: -8px; background: var(--border);
+    }
+    .history-dot {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--surface); border: 2px solid var(--border);
+      flex-shrink: 0; margin-top: 2px; z-index: 1;
+    }
+    .history-dot.hd-done   { background: var(--green); border-color: var(--green); }
+    .history-dot.hd-status { background: var(--blue); border-color: var(--blue); }
+    .history-dot.hd-create { background: var(--purple); border-color: var(--purple); }
+    .history-dot.hd-comment { background: var(--orange); border-color: var(--orange); }
+    .history-body { flex: 1; min-width: 0; }
+    .history-desc { font-size: 12.5px; color: var(--text); line-height: 1.4; }
+    .history-desc strong { font-weight: 600; }
+    .history-from { color: var(--muted); text-decoration: line-through; font-size: 12px; }
+    .history-to   { color: var(--text); font-size: 12px; }
+    .history-time { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
     /* ── Due-date relative label ────────────────────────────────── */
     .dd-today    { color: var(--orange); font-weight: 600; }
     .dd-tomorrow { color: #fbbf24; font-weight: 500; }
@@ -1647,20 +1717,48 @@
     updateThemeIcon();
   }
 
+  // Hardcoded member list — no API call needed, renders instantly even after logout
+  const LOGIN_MEMBERS = [
+    { username: 'Harihar Singh', displayName: 'Harihar Singh', role: 'admin' },
+    { username: 'Gelika',        displayName: 'Gelika',        role: 'member' },
+    { username: 'Irakli',        displayName: 'Irakli',        role: 'member' },
+    { username: 'N1ka',          displayName: 'N1ka',          role: 'member' },
+    { username: 'Cole',          displayName: 'Cole',          role: 'member' },
+  ];
+
   function logout() {
+    // Clear all tokens and local state
     clearToken();
-    state.user = null;
-    showLoginScreen();
+    localStorage.removeItem(TZ_KEY);
+    localStorage.removeItem(SETUP_DONE_KEY);
+    state.user         = null;
+    state.tasks        = [];
+    state.archive      = [];
+    state.resources    = [];
+    state.personalTasks = [];
+    state.selectedTasks = new Set();
+    // Hide app + setup, show login
+    document.getElementById('appLayout').style.display   = 'none';
+    document.getElementById('setupScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    initLoginScreen();
   }
 
   // ── Login screen rendering ─────────────────────────────────────────────────
-  let loginMembers  = [];
+  let loginMembers   = [];
   let selectedMember = null;
-  let pinDigits     = [];
+  let pinDigits      = [];
 
-  async function initLoginScreen() {
-    const res  = await fetch('/auth/members').then(r => r.json()).catch(() => ({ members: [] }));
-    loginMembers = res.members || [];
+  function initLoginScreen() {
+    // Reset pin state
+    selectedMember = null;
+    pinDigits      = [];
+    loginMembers   = LOGIN_MEMBERS;
+
+    document.getElementById('loginMembers').style.display    = '';
+    document.getElementById('loginPinSection').style.display = 'none';
+    document.getElementById('pinError').textContent          = '';
+
     document.getElementById('loginMembers').innerHTML = loginMembers.map(m =>
       `<div class="login-member-card" data-username="${esc(m.username)}" onclick="selectMember('${esc(m.username)}')">
         ${avatarHtml(m.username, 44)}
@@ -2602,16 +2700,20 @@
     document.getElementById('overlay').classList.add('show');
     document.getElementById('panel').classList.add('open');
 
-    const [ur, rr] = await Promise.all([
+    const [ur, rr, cr, hr] = await Promise.all([
       authFetch('/users').then(r => r.ok ? r.json() : null).catch(() => null),
       authFetch('/reminders').then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch(`/tasks/${taskId}/comments`).then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch(`/tasks/${taskId}/history`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (panelTaskId !== taskId) return; // panel was reopened for a different task
     const users = ur?.users || [];
     state.workspaceUsers = users;
     const activeReminder = (rr?.reminders || []).find(r => r.taskId === taskId) || null;
+    const comments        = cr?.comments || [];
+    const history         = hr?.history  || [];
 
-    document.getElementById('panelBody').innerHTML = panelContent(task, users, activeReminder);
+    document.getElementById('panelBody').innerHTML = panelContent(task, users, activeReminder, comments, history);
 
     if (focusField) {
       setTimeout(() => {
@@ -2626,7 +2728,7 @@
     document.getElementById('panel').classList.remove('open');
   }
 
-  function panelContent(t, users = [], activeReminder = null) {
+  function panelContent(t, users = [], activeReminder = null, comments = [], history = []) {
     const edited = t.lastEdited
       ? new Date(t.lastEdited).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
       : '—';
@@ -2712,12 +2814,17 @@
 
       <div style="border-top:1px solid var(--border);padding-top:16px;margin-top:16px">
         <div class="panel-tabs">
-          ${['notes','sop','resources'].map(tab => {
-            const hasDot = tab === 'notes' ? hasNotes : tab === 'sop' ? hasSop : hasRes;
-            return `<button class="panel-tab${panelActiveTab === tab ? ' active' : ''}" data-tab="${tab}" onclick="switchTab('${tab}')">
-              ${tab.charAt(0).toUpperCase() + tab.slice(1)}${hasDot ? '<span class="tab-dot"></span>' : ''}
-            </button>`;
-          }).join('')}
+          ${[
+            { tab: 'notes',    label: 'Notes',    dot: hasNotes },
+            { tab: 'sop',      label: 'SOP',      dot: hasSop   },
+            { tab: 'resources',label: 'Resources', dot: hasRes   },
+            { tab: 'comments', label: 'Comments',  dot: comments.length > 0 },
+            { tab: 'activity', label: 'Activity',  dot: history.length > 0  },
+          ].map(({ tab, label, dot }) =>
+            `<button class="panel-tab${panelActiveTab === tab ? ' active' : ''}" data-tab="${tab}" onclick="switchTab('${tab}')">
+              ${label}${dot ? '<span class="tab-dot"></span>' : ''}
+            </button>`
+          ).join('')}
         </div>
 
         <div class="tab-panel" data-panel="notes" style="display:${panelActiveTab==='notes'?'block':'none'}">
@@ -2751,8 +2858,134 @@
           </div>
           <button type="button" class="add-res-btn" onclick="addMetaResource('${esc(t.id)}')">+ Add resource</button>
         </div>
+
+        <div class="tab-panel" data-panel="comments" style="display:${panelActiveTab==='comments'?'block':'none'}">
+          <div class="comments-list" id="commentsList">
+            ${comments.length === 0
+              ? '<div class="empty" style="padding:20px 0">No comments yet — be the first!</div>'
+              : comments.map(c => commentItemHtml(c, t.id)).join('')}
+          </div>
+          <div class="comment-input-wrap">
+            <input class="comment-input" id="commentInput" type="text"
+              placeholder="Add a comment…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();submitComment('${esc(t.id)}','${esc(t.name)}');}">
+            <button class="comment-send-btn" onclick="submitComment('${esc(t.id)}','${esc(t.name)}')">Send</button>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="activity" style="display:${panelActiveTab==='activity'?'block':'none'}">
+          ${history.length === 0
+            ? '<div class="empty" style="padding:20px 0">No activity recorded yet</div>'
+            : `<div class="history-list">
+                ${history.map(h => `
+                  <div class="history-item">
+                    <div class="history-dot ${historyDotClass(h.action)}"></div>
+                    <div class="history-body">
+                      <div class="history-desc">${formatHistoryEntry(h)}</div>
+                      <div class="history-time">${timeAgo(h.at)}</div>
+                    </div>
+                  </div>`).join('')}
+               </div>`}
+        </div>
       </div>
     `;
+  }
+
+  // ── Time-ago + history helpers ─────────────────────────────────────────────
+  function timeAgo(iso) {
+    if (!iso) return '';
+    const diff  = Date.now() - new Date(iso).getTime();
+    const mins  = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days  = Math.floor(diff / 86400000);
+    if (mins  < 1)  return 'just now';
+    if (mins  < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days  === 1) return 'yesterday';
+    return `${days}d ago`;
+  }
+
+  function historyDotClass(action) {
+    if (action === 'task_completed')   return 'hd-done';
+    if (action === 'status_changed')   return 'hd-status';
+    if (action === 'task_created')     return 'hd-create';
+    if (action === 'comment_added')    return 'hd-comment';
+    return '';
+  }
+
+  function formatHistoryEntry(h) {
+    const by = h.by ? `<strong>${esc(h.by.split(' ')[0])}</strong>` : 'Someone';
+    switch (h.action) {
+      case 'task_created':
+        return `${by} created this task`;
+      case 'status_changed':
+        return `${by} changed status <span class="history-from">${esc(h.from)}</span> → <span class="history-to">${esc(h.to)}</span>`;
+      case 'task_completed':
+        return `${by} marked this task <strong style="color:var(--green)">Done</strong>`;
+      case 'due_date_changed':
+        return `${by} changed due date to <strong>${esc(h.to === 'None' ? 'none' : h.to)}</strong>`;
+      case 'name_changed':
+        return `${by} renamed task`;
+      case 'assignee_changed':
+        const to = Array.isArray(h.to) ? h.to.join(', ') : h.to;
+        return `${by} updated assignees → <strong>${esc(to)}</strong>`;
+      case 'comment_added':
+        return `${by} added a comment`;
+      default:
+        return `${by} made a change`;
+    }
+  }
+
+  function commentItemHtml(c, taskId) {
+    const isMe = c.author === state.user?.username;
+    return `
+      <div class="comment-item" id="cmt_${esc(c.id)}">
+        ${avatarHtml(c.author, 26)}
+        <div class="comment-body">
+          <div class="comment-header">
+            <span class="comment-author">${esc(c.displayName || c.author)}</span>
+            <span class="comment-time">${timeAgo(c.createdAt)}</span>
+            ${isMe ? `<button class="comment-delete" onclick="deleteComment('${esc(taskId)}','${esc(c.id)}')" title="Delete">✕</button>` : ''}
+          </div>
+          <div class="comment-text">${esc(c.text)}</div>
+        </div>
+      </div>`;
+  }
+
+  async function submitComment(taskId, taskName) {
+    const input = document.getElementById('commentInput');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.disabled = true;
+    try {
+      const res  = await authFetch(`/tasks/${taskId}/comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, taskName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      const list = document.getElementById('commentsList');
+      if (list) {
+        list.querySelector('.empty')?.remove();
+        const el = document.createElement('div');
+        el.innerHTML = commentItemHtml(data.comment, taskId);
+        list.appendChild(el.firstElementChild);
+        list.scrollTop = list.scrollHeight;
+      }
+    } catch (err) {
+      console.error('[submitComment]', err.message);
+      input.value = text;
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function deleteComment(taskId, commentId) {
+    await authFetch(`/tasks/${taskId}/comments/${commentId}`, { method: 'DELETE' });
+    document.getElementById(`cmt_${commentId}`)?.remove();
   }
 
   // ── Filter handler ─────────────────────────────────────────────────────────
