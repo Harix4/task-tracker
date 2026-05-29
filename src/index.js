@@ -134,55 +134,116 @@ app.post('/auth/pin', auth.requireAuth, async (req, res) => {
 
 // ── Personal task routes (auth required) ─────────────────────────────────────
 
+// Helper: send a DM to a named team member if they have a registered chat ID
+async function dmMember(memberName, text) {
+  const member = team.lookup(memberName);
+  if (!member) return;
+  const chatId = await personal.getChatId(member.telegram);
+  if (!chatId) return;
+  return telegram.sendMessage(text, chatId).catch(err =>
+    console.warn('[personal DM]', memberName, err.message)
+  );
+}
+
+// GET own tasks + collab tasks merged
 app.get('/personal/tasks', auth.requireAuth, async (req, res) => {
   try {
-    const tasks = await personal.getTasks(req.user.username);
-    res.json({ tasks });
+    const [own, collab] = await Promise.all([
+      personal.getTasks(req.user.username),
+      personal.getCollabTasks(req.user.username),
+    ]);
+    res.json({ tasks: [...own, ...collab] });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Create task, notify collaborators
 app.post('/personal/tasks', auth.requireAuth, async (req, res) => {
   const { name } = req.body;
   if (!name?.trim()) return res.status(400).json({ error: 'Task name required' });
   try {
     const task = await personal.addTask(req.user.username, req.body);
-    // Set reminder if interval provided
+
+    // Set reminder
     if (task.reminderInterval && reminders.INTERVAL_MINUTES[task.reminderInterval]) {
       await reminders.setPersonal(req.user.username, task.id, task.name, task.reminderInterval, req.user.telegram);
     }
+
+    // Notify collaborators via Telegram DM
+    if (task.collaborators?.length) {
+      const creator  = req.user.displayName || req.user.username;
+      const tz       = await auth.getTimezone(req.user.username);
+      const dueStr   = task.dueDate
+        ? new Date(task.dueDate + 'T12:00:00').toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: 'numeric' })
+        : 'No due date';
+      for (const collab of task.collaborators) {
+        dmMember(collab,
+          `👥 *${creator} shared a task with you:*\n` +
+          `${task.name}\n` +
+          `Due: ${dueStr}\n` +
+          `You can view it in your Personal tab on Klone HQ.`
+        );
+      }
+    }
+
     res.status(201).json({ task });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Update task — supports editing as creator OR collaborator
 app.patch('/personal/tasks/:id', auth.requireAuth, async (req, res) => {
   try {
-    const username = req.user.username;
-    const taskId   = req.params.id;
-    const updated  = await personal.updateTask(username, taskId, req.body);
+    const actingUser    = req.user.username;
+    const taskId        = req.params.id;
+    const ownerUsername = req.body.creatorUsername || actingUser;
+
+    // Fetch task to verify access
+    const existing = await personal.getTask(ownerUsername, taskId);
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
+    const isCreator = ownerUsername === actingUser;
+    const isCollab  = (existing.collaborators || []).includes(actingUser);
+    if (!isCreator && !isCollab) return res.status(403).json({ error: 'Access denied' });
+
+    // Strip routing field before storing
+    const { creatorUsername: _skip, ...fields } = req.body;
+    const updated = await personal.updateTask(ownerUsername, taskId, fields);
     if (!updated) return res.status(404).json({ error: 'Task not found' });
 
     // Handle reminder interval change
-    const interval = req.body.reminderInterval;
+    const interval = fields.reminderInterval;
     if (interval !== undefined) {
+      const ownerMember = auth.getMember(ownerUsername);
       if (interval && reminders.INTERVAL_MINUTES[interval]) {
-        await reminders.setPersonal(username, taskId, updated.name, interval, req.user.telegram);
+        await reminders.setPersonal(ownerUsername, taskId, updated.name, interval, ownerMember?.telegram || req.user.telegram);
       } else {
-        await reminders.cancelPersonal(username, taskId);
+        await reminders.cancelPersonal(ownerUsername, taskId);
       }
     }
 
-    // Mark done → cancel reminder
-    if (req.body.status === 'done') {
-      await reminders.cancelPersonal(username, taskId);
+    // Mark done → cancel reminder + notify collaborators
+    if (fields.status === 'done') {
+      await reminders.cancelPersonal(ownerUsername, taskId);
+      const doneBy = req.user.displayName || actingUser;
+      const msg    = `✅ *${updated.name}* has been completed by *${doneBy}*`;
+
+      // Notify all collaborators
+      for (const collab of (updated.collaborators || [])) {
+        if (collab !== actingUser) dmMember(collab, msg);
+      }
+      // Notify creator if a collaborator was the one who marked it done
+      if (!isCreator) dmMember(ownerUsername, msg);
     }
-    res.json({ task: updated });
+
+    res.json({ task: { ...updated, _creatorUsername: isCollab ? ownerUsername : undefined } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Delete task — creator only
 app.delete('/personal/tasks/:id', auth.requireAuth, async (req, res) => {
   try {
-    const ok = await personal.deleteTask(req.user.username, req.params.id);
-    await reminders.cancelPersonal(req.user.username, req.params.id);
+    const taskId = req.params.id;
+    // Collab members can only delete from own tasks (creator owns the record)
+    const ok = await personal.deleteTask(req.user.username, taskId);
+    await reminders.cancelPersonal(req.user.username, taskId);
     if (!ok) return res.status(404).json({ error: 'Task not found' });
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

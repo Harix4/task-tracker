@@ -14,6 +14,16 @@ function localTimeStr(tz) {
   } catch { return ''; }
 }
 
+// Format a YYYY-MM-DD date string in a given timezone
+function fmtDueDate(dateStr, tz) {
+  if (!dateStr) return 'No due date';
+  try {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+      timeZone: tz || 'UTC', month: 'short', day: 'numeric', year: 'numeric',
+    });
+  } catch { return dateStr; }
+}
+
 const INTERVAL_LABELS = {
   '10min': '10 minutes', '30min': '30 minutes',
   '1hr':   '1 hour',     '2hr':   '2 hours',
@@ -178,41 +188,46 @@ async function firePersonal(r) {
     }
 
     const tz    = await auth.getTimezone(r.username);
-    const tStr  = localTimeStr(tz);
     const today = new Date().toISOString().split('T')[0];
-
-    // Format due date in the user's local timezone
-    function fmtDue(dateStr) {
-      if (!dateStr) return 'No due date';
-      try {
-        return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-          timeZone: tz, month: 'short', day: 'numeric', year: 'numeric',
-        });
-      } catch { return dateStr; }
-    }
 
     // Strip emoji prefix from priority value (e.g. "🔴 High" → "High")
     const priorityLabel = task.priority
       ? task.priority.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim()
       : 'Not set';
 
-    if (task.dueDate && task.dueDate < today) {
-      const days = Math.floor((Date.now() - new Date(task.dueDate + 'T12:00:00').getTime()) / 86400000);
-      await telegram.sendMessage(
-        `🚨 *OVERDUE (Personal): ${task.name}*\n` +
-        `Was due: ${fmtDue(task.dueDate)} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
-        `Your time: ${tStr}\n` +
-        `Please complete this task.`,
-        chatId
-      );
-    } else {
-      await telegram.sendMessage(
+    // Build message for a given recipient timezone
+    function buildMsg(recipientTz) {
+      const tStr = localTimeStr(recipientTz);
+      if (task.dueDate && task.dueDate < today) {
+        const days = Math.floor((Date.now() - new Date(task.dueDate + 'T12:00:00').getTime()) / 86400000);
+        return (
+          `🚨 *OVERDUE (Personal): ${task.name}*\n` +
+          `Was due: ${fmtDueDate(task.dueDate, recipientTz)} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
+          `Your time: ${tStr}\n` +
+          `Please complete this task.`
+        );
+      }
+      return (
         `⏰ *Personal Reminder: ${task.name}*\n` +
-        `Due: ${fmtDue(task.dueDate)}\n` +
+        `Due: ${fmtDueDate(task.dueDate, recipientTz)}\n` +
         `Priority: ${priorityLabel}\n` +
         `Your time: ${tStr}\n` +
-        `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`,
-        chatId
+        `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`
+      );
+    }
+
+    // Send to task owner
+    await telegram.sendMessage(buildMsg(tz), chatId);
+
+    // Send to collaborators
+    for (const collab of (task.collaborators || [])) {
+      const collabMember = team.lookup(collab);
+      if (!collabMember) continue;
+      const collabChatId = await personal.getChatId(collabMember.telegram);
+      if (!collabChatId) continue;
+      const collabTz = await auth.getTimezone(collab);
+      await telegram.sendMessage(buildMsg(collabTz), collabChatId).catch(err =>
+        console.warn('[reminders] collab DM error:', err.message)
       );
     }
   } catch (err) {

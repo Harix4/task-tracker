@@ -4160,7 +4160,11 @@
   }
 
   // ── Personal tasks ─────────────────────────────────────────────────────────
-  let personalPanelId = null; // null = create
+  let personalPanelId      = null; // null = create
+  let personalPanelCreator = null; // null = own task, string = creator username for collab
+
+  // Small SVG people icon for collab tasks
+  const COLLAB_ICON = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.6;flex-shrink:0"><circle cx="4.5" cy="4" r="1.8"/><path d="M1 10c0-1.9 1.6-3 3.5-3"/><circle cx="8.5" cy="4" r="1.8"/><path d="M6 10c0-1.9 1.6-3 3.5-3"/></svg>`;
 
   function renderPersonal() {
     const tasks = state.personalTasks;
@@ -4177,11 +4181,19 @@
         ? '<div class="empty"><div class="empty-icon">🗒️</div>No personal tasks yet — add one above</div>'
         : `<div class="table-wrap"><table>
             <thead><tr>
-              <th></th><th>Task</th><th>Priority</th><th>Due Date</th><th>Reminder</th>
+              <th></th><th>Task</th><th>Priority</th><th>Due</th><th>Reminder</th>
             </tr></thead>
             <tbody>
               ${active.map(t => {
-                const overdue = t.dueDate && t.dueDate < today;
+                const overdue    = t.dueDate && t.dueDate < today;
+                const hasCollabs = (t.collaborators || []).length > 0;
+                const collabAvatars = hasCollabs
+                  ? `<div class="av-stack" style="display:inline-flex;margin-left:6px">
+                      ${(t.collaborators || []).slice(0,3).map(n =>
+                        `<div class="av" style="width:18px;height:18px;background:${avatarColor(n)};font-size:7px">${esc(initials(n))}</div>`
+                      ).join('')}
+                     </div>`
+                  : '';
                 return `<tr onclick="openPersonalPanel('${esc(t.id)}')">
                   <td class="td-cb" onclick="event.stopPropagation()">
                     <button class="task-cb" onclick="togglePersonalDone('${esc(t.id)}')">
@@ -4190,9 +4202,16 @@
                       </svg>
                     </button>
                   </td>
-                  <td class="td-task">${esc(t.name)}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      ${hasCollabs ? COLLAB_ICON : ''}
+                      <span class="td-task" style="max-width:200px">${esc(t.name)}</span>
+                      ${collabAvatars}
+                      ${t._isCollab ? `<span style="font-size:10.5px;color:var(--muted);margin-left:2px">${esc((t._creatorUsername||'').split(' ')[0])}</span>` : ''}
+                    </div>
+                  </td>
                   <td>${prioHtml(t.priority)}</td>
-                  <td style="${overdue?'color:var(--red);font-weight:600':''}">${dueDateHtml(t.dueDate)}</td>
+                  <td>${dueDateRel(t.dueDate)}</td>
                   <td style="font-size:12px;color:var(--muted)">
                     ${t.reminderInterval ? INTERVAL_LABELS[t.reminderInterval] || t.reminderInterval : '—'}
                   </td>
@@ -4209,8 +4228,9 @@
   }
 
   function openPersonalPanel(taskId) {
-    personalPanelId = taskId;
-    const task = taskId ? state.personalTasks.find(t => t.id === taskId) : null;
+    personalPanelId      = taskId;
+    const task           = taskId ? state.personalTasks.find(t => t.id === taskId) : null;
+    personalPanelCreator = task?._creatorUsername || null;
     document.getElementById('panelTitle').textContent = task ? 'Personal Task' : 'New Personal Task';
     document.getElementById('panelBody').innerHTML    = personalPanelContent(task);
     document.getElementById('panel').classList.add('open');
@@ -4221,8 +4241,12 @@
     const t      = task || {};
     const prio   = t.priority || '';
     const remind = t.reminderInterval || '';
+    const isCollab    = !!t._isCollab;
+    const isOwn       = !isCollab;
+    const me          = state.user?.username || '';
+    const existingCollabs = isCollab ? (t.collaborators || []) : (t.collaborators || []);
 
-    // Priority — segmented buttons matching team task panel style
+    // Priority — segmented buttons
     const PRIO_OPTS = [
       { val: '🔴 High',   label: 'High',   cls: 's-blocked' },
       { val: '🟡 Medium', label: 'Medium', cls: 's-review'  },
@@ -4233,13 +4257,22 @@
         data-prio="${esc(val)}" onclick="ptSetPrio('${esc(val)}')">${label}</button>`
     ).join('');
 
-    // Reminder — pill buttons matching team task panel style
+    // Reminder — pill buttons
     const reminderPills = REMINDER_OPTIONS.map(([key, label]) =>
       `<button type="button" class="rem-pill${remind === key ? ' rem-pill-active' : ''}"
         data-key="${esc(key)}" onclick="ptToggleReminder('${esc(key)}')">${label}</button>`
     ).join('');
 
+    // Collaborators — people picker (exclude self; show current collaborators)
+    const collabPicker = peoplePicker(existingCollabs, 'ptask-collab-pp');
+
+    // If this is a collab task, show who created it
+    const creatorNote = isCollab
+      ? `<div class="form-field"><div style="font-size:12px;color:var(--muted);padding:8px 0;border-top:1px solid var(--border);margin-top:4px">Shared by <strong>${esc(t._creatorUsername || t.createdBy || '')}</strong></div></div>`
+      : '';
+
     return `
+      ${creatorNote}
       <div class="form-field">
         <label class="form-label" for="pt_name">Task Name</label>
         <input id="pt_name" class="form-input" type="text" value="${esc(t.name||'')}"
@@ -4259,6 +4292,10 @@
         <div class="rem-pills" id="pt_reminder_pills">${reminderPills}</div>
       </div>
       <div class="form-field">
+        <div class="form-label">Collaborators <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optional — share with teammates)</span></div>
+        ${collabPicker}
+      </div>
+      <div class="form-field">
         <label class="form-label" for="pt_notes">Notes</label>
         <textarea id="pt_notes" class="form-input res-textarea" style="min-height:100px"
           placeholder="Add notes, context, or reminders...">${esc(t.notes||'')}</textarea>
@@ -4266,7 +4303,7 @@
       <button type="button" id="ptSaveBtn" class="panel-save-btn" onclick="savePersonalTask()">
         ${task ? 'Save' : 'Create Task'}
       </button>
-      ${task ? `<button class="modal-cancel-btn" style="margin-top:8px"
+      ${task && isOwn ? `<button class="modal-cancel-btn" style="margin-top:8px"
         onclick="deletePersonalTask('${esc(task.id)}')">Delete Task</button>` : ''}
     `;
   }
@@ -4294,13 +4331,18 @@
     const name = document.getElementById('pt_name')?.value.trim();
     if (!name) return;
 
-    const activePill = document.querySelector('#pt_reminder_pills .rem-pill-active');
+    const activePill  = document.querySelector('#pt_reminder_pills .rem-pill-active');
+    const collaborators = getPickerSelections('ptask-collab-pp')
+      .filter(n => n !== (state.user?.username || ''));
+
     const payload = {
       name,
       dueDate:          document.getElementById('pt_due')?.value  || null,
       priority:         document.getElementById('pt_prio')?.value || null,
       reminderInterval: activePill ? activePill.dataset.key       : null,
       notes:            document.getElementById('pt_notes')?.value || '',
+      collaborators,
+      ...(personalPanelCreator ? { creatorUsername: personalPanelCreator } : {}),
     };
     try {
       if (personalPanelId) {
@@ -4330,11 +4372,13 @@
     const newStatus = task.status === 'done' ? 'active' : 'done';
     task.status = newStatus; // optimistic
     render();
+    const body = { status: newStatus };
+    if (task._creatorUsername) body.creatorUsername = task._creatorUsername;
     try {
       await authFetch(`/personal/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(body),
       });
     } catch (err) { console.error('[personal toggle]', err); }
   }
