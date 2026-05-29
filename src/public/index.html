@@ -927,68 +927,167 @@
     }
     .panel-save-btn:hover { opacity: 0.85; }
     .panel-save-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Login screen ───────────────────────────────────────────── */
+    .login-screen {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg); display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      text-align: center; width: 100%; max-width: 480px; padding: 0 24px;
+    }
+    .login-logo {
+      font-size: 36px; font-weight: 700; letter-spacing: -0.04em;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .login-subtitle {
+      font-size: 15px; color: var(--muted); margin-bottom: 32px;
+    }
+    .login-members {
+      display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;
+    }
+    .login-member-card {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      width: 130px; padding: 16px 8px; border-radius: 14px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      cursor: pointer; transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+    .login-member-card:hover {
+      border-color: var(--blue); transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,113,227,.18);
+    }
+    .login-member-card.selected { border-color: var(--blue); background: rgba(0,113,227,.06); }
+    .login-member-name {
+      font-size: 13px; font-weight: 600; color: var(--text);
+    }
+    .login-member-role {
+      font-size: 11px; color: var(--muted); margin-top: -4px;
+    }
+
+    /* ── PIN pad ────────────────────────────────────────────────── */
+    .login-pin-section { margin-top: 28px; }
+    .login-selected-name {
+      font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 20px;
+    }
+    .pin-dots {
+      display: flex; gap: 14px; justify-content: center; margin-bottom: 20px;
+    }
+    .pin-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid var(--muted); transition: background 0.15s, border-color 0.15s;
+    }
+    .pin-dot.filled { background: var(--blue); border-color: var(--blue); }
+    .pin-pad {
+      display: grid; grid-template-columns: repeat(3, 72px); gap: 10px;
+      justify-content: center; margin: 0 auto;
+    }
+    .pin-key {
+      height: 54px; border-radius: 12px; font-size: 20px; font-weight: 500;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); cursor: pointer; transition: opacity 0.1s;
+      font-family: var(--font);
+    }
+    .pin-key:active { opacity: 0.6; }
+    .pin-key.pin-empty { visibility: hidden; }
+    .pin-error-msg {
+      color: var(--red); font-size: 13px; min-height: 20px; margin: 10px 0 6px;
+    }
+    .pin-back-btn {
+      margin-top: 16px; font-size: 13px; color: var(--muted); cursor: pointer;
+      background: none; border: none; font-family: var(--font);
+    }
+    .pin-back-btn:hover { color: var(--text); }
+
+    /* ── Sidebar user footer ────────────────────────────────────── */
+    .sidebar-user {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 8px; border-radius: 10px; margin-bottom: 6px;
+      background: rgba(255,255,255,.04);
+    }
+    .sidebar-user-info { flex: 1; min-width: 0; }
+    .sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--text); }
+    .sidebar-user-role { font-size: 11px; color: var(--muted); }
+    .sidebar-user-actions {
+      display: flex; gap: 4px;
+    }
+    .sidebar-action-btn {
+      font-size: 11px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 4px 6px; border-radius: 6px; font-family: var(--font);
+      transition: background 0.1s, color 0.1s;
+    }
+    .sidebar-action-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
+
+    /* ── PIN change modal ───────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 800;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px 28px 20px; width: 320px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+    .modal-target { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+    .modal-cancel-btn {
+      margin-top: 8px; width: 100%; height: 36px; border-radius: 8px;
+      font-size: 13.5px; color: var(--muted); background: none;
+      border: 1px solid var(--border); cursor: pointer; font-family: var(--font);
+      transition: background 0.1s;
+    }
+    .modal-cancel-btn:hover { background: rgba(255,255,255,.06); }
+
+    /* ── Personal tasks page ────────────────────────────────────── */
+    .personal-new-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--blue); color: #fff; border: none; border-radius: 10px;
+      padding: 8px 16px; font-size: 13.5px; font-weight: 600;
+      cursor: pointer; font-family: var(--font); transition: opacity 0.1s;
+    }
+    .personal-new-btn:hover { opacity: 0.85; }
+    .ptask-done-row td { opacity: .45; text-decoration: line-through; }
+
+    /* ── Personal task panel ────────────────────────────────────── */
+    .ptask-form-field { margin-bottom: 16px; }
+    .ptask-label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
 
-<div class="layout">
+<!-- ── Login screen ─────────────────────────────────────────────────────── -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">Taskr</div>
+    <div class="login-subtitle">Choose your profile</div>
+    <div class="login-members" id="loginMembers"></div>
+    <div class="login-pin-section" id="loginPinSection" style="display:none">
+      <div class="login-selected-name" id="loginSelectedName"></div>
+      <div class="pin-dots">
+        <span class="pin-dot" id="pd0"></span>
+        <span class="pin-dot" id="pd1"></span>
+        <span class="pin-dot" id="pd2"></span>
+        <span class="pin-dot" id="pd3"></span>
+      </div>
+      <div class="pin-error-msg" id="pinError"></div>
+      <div class="pin-pad" id="pinPad"></div>
+      <button class="pin-back-btn" onclick="backToMembers()">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── App ───────────────────────────────────────────────────────────────── -->
+<div class="layout" id="appLayout" style="display:none">
   <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-brand">Taskr</div>
-
-    <div class="nav">
-      <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor">
-          <rect x="1" y="1" width="6" height="6" rx="1.5"/>
-          <rect x="9" y="1" width="6" height="6" rx="1.5"/>
-          <rect x="1" y="9" width="6" height="6" rx="1.5"/>
-          <rect x="9" y="9" width="6" height="6" rx="1.5"/>
-        </svg>
-        Dashboard
-      </div>
-      <div class="nav-item" data-page="tasks" onclick="navigate('tasks')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-          <path d="M3 4h10M3 8h10M3 12h6"/>
-        </svg>
-        Tasks
-      </div>
-      <div class="nav-item" data-page="recurring" onclick="navigate('recurring')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4"/>
-          <path d="M2.5 2.5v3h3"/>
-        </svg>
-        Recurring
-      </div>
-      <div class="nav-item" data-page="performance" onclick="navigate('performance')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor">
-          <rect x="1" y="9" width="3" height="6" rx="1"/>
-          <rect x="6.5" y="5" width="3" height="10" rx="1"/>
-          <rect x="12" y="1" width="3" height="14" rx="1"/>
-        </svg>
-        Performance
-      </div>
-      <div class="nav-item" data-page="resources" onclick="navigate('resources')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/>
-          <path d="M10 1.5v3.5h3.5"/>
-          <path d="M6.5 7.5h3M6.5 10h4.5"/>
-        </svg>
-        Resources
-      </div>
-      <div class="nav-item" data-page="completed" onclick="navigate('completed')">
-        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="8" cy="8" r="6.5"/>
-          <path d="M5 8l2 2 4-4"/>
-        </svg>
-        Completed
-      </div>
-    </div>
-
+    <div class="nav" id="sidebarNav"></div>
     <div class="sidebar-bottom">
-      <div class="ws-info">
-        <div class="ws-avatar">EC</div>
-        <div class="ws-name">Ecommerce</div>
-      </div>
+      <div id="sidebarUser"></div>
       <div class="refresh-dot" id="refreshDot" title="Live data"></div>
     </div>
   </nav>
@@ -997,6 +1096,29 @@
   <main id="main">
     <div class="empty"><div class="empty-icon">⏳</div>Loading…</div>
   </main>
+</div>
+
+<!-- ── PIN change modal ──────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="pinModal" style="display:none" onclick="closePinModal()">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-title">Change PIN</div>
+    <div class="modal-target" id="pinModalTarget"></div>
+    <div class="form-field">
+      <label class="form-label">Current PIN</label>
+      <input id="pinCurrent" type="password" maxlength="4" class="form-input" placeholder="••••" style="letter-spacing:.2em;font-size:18px">
+    </div>
+    <div class="form-field">
+      <label class="form-label">New PIN (4 digits)</label>
+      <input id="pinNew" type="password" maxlength="4" class="form-input" placeholder="••••" style="letter-spacing:.2em;font-size:18px">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Confirm New PIN</label>
+      <input id="pinConfirm" type="password" maxlength="4" class="form-input" placeholder="••••" style="letter-spacing:.2em;font-size:18px">
+    </div>
+    <div class="pin-error-msg" id="pinModalError"></div>
+    <button class="panel-save-btn" onclick="submitPinChange()">Update PIN</button>
+    <button class="modal-cancel-btn" onclick="closePinModal()">Cancel</button>
+  </div>
 </div>
 
 <!-- Overlay -->
@@ -1024,9 +1146,279 @@
     viewMode: 'table',
     workspaceUsers: [],
     recurring: [],
+    user: null,          // { username, role, telegram, displayName, initials }
+    personalTasks: [],
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
+
+  // ── Auth utilities ─────────────────────────────────────────────────────────
+  const TOKEN_KEY = 'taskr_token';
+
+  function getToken()      { return localStorage.getItem(TOKEN_KEY); }
+  function setToken(t)     { localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken()    { localStorage.removeItem(TOKEN_KEY); }
+
+  function parseJWT(token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) return null;
+      return payload;
+    } catch { return null; }
+  }
+
+  function authFetch(url, opts = {}) {
+    const token = getToken();
+    return fetch(url, {
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+    });
+  }
+
+  // ── Nav definition ─────────────────────────────────────────────────────────
+  const NAV_ICONS = {
+    dashboard:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>`,
+    tasks:       `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h6"/></svg>`,
+    mytasks:     `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-5 6-5"/><path d="M11 12l1.5 1.5L15 11"/></svg>`,
+    personal:    `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="13" rx="2"/><path d="M5 6h6M5 9h4"/></svg>`,
+    recurring:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4"/><path d="M2.5 2.5v3h3"/></svg>`,
+    performance: `<svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="10" rx="1"/><rect x="12" y="1" width="3" height="14" rx="1"/></svg>`,
+    resources:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/><path d="M10 1.5v3.5h3.5"/><path d="M6.5 7.5h3M6.5 10h4.5"/></svg>`,
+    completed:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>`,
+  };
+
+  const NAV_ITEMS = {
+    admin:  [
+      { page: 'dashboard',   label: 'Dashboard' },
+      { page: 'tasks',       label: 'Tasks' },
+      { page: 'personal',    label: 'Personal' },
+      { page: 'recurring',   label: 'Recurring' },
+      { page: 'resources',   label: 'Resources' },
+      { page: 'performance', label: 'Performance' },
+      { page: 'completed',   label: 'Completed' },
+    ],
+    member: [
+      { page: 'dashboard', label: 'Dashboard' },
+      { page: 'tasks',     label: 'Tasks' },
+      { page: 'mytasks',   label: 'My Tasks' },
+      { page: 'personal',  label: 'Personal' },
+      { page: 'resources', label: 'Resources' },
+      { page: 'completed', label: 'Completed' },
+    ],
+  };
+
+  function renderNav() {
+    const role  = state.user?.role || 'member';
+    const items = NAV_ITEMS[role] || NAV_ITEMS.member;
+    document.getElementById('sidebarNav').innerHTML = items.map(({ page, label }) =>
+      `<div class="nav-item${state.page === page ? ' active' : ''}" data-page="${page}" onclick="navigate('${page}')">
+        ${NAV_ICONS[page] || ''}${label}
+      </div>`
+    ).join('');
+  }
+
+  function renderSidebarUser() {
+    const u = state.user;
+    if (!u) { document.getElementById('sidebarUser').innerHTML = ''; return; }
+    document.getElementById('sidebarUser').innerHTML = `
+      <div class="sidebar-user">
+        ${avatarHtml(u.username, 30)}
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name">${esc(u.displayName || u.username)}</div>
+          <div class="sidebar-user-role">${u.role === 'admin' ? 'Admin' : 'Member'}</div>
+        </div>
+        <div class="sidebar-user-actions">
+          <button class="sidebar-action-btn" onclick="openPinModal()" title="Change PIN">🔑</button>
+          <button class="sidebar-action-btn" onclick="logout()" title="Logout">↩</button>
+        </div>
+      </div>`;
+  }
+
+  // ── Auth flow ──────────────────────────────────────────────────────────────
+  function showLoginScreen() {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appLayout').style.display   = 'none';
+  }
+
+  function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appLayout').style.display   = 'flex';
+  }
+
+  function logout() {
+    clearToken();
+    state.user = null;
+    showLoginScreen();
+  }
+
+  // ── Login screen rendering ─────────────────────────────────────────────────
+  let loginMembers  = [];
+  let selectedMember = null;
+  let pinDigits     = [];
+
+  async function initLoginScreen() {
+    const res  = await fetch('/auth/members').then(r => r.json()).catch(() => ({ members: [] }));
+    loginMembers = res.members || [];
+    document.getElementById('loginMembers').innerHTML = loginMembers.map(m =>
+      `<div class="login-member-card" data-username="${esc(m.username)}" onclick="selectMember('${esc(m.username)}')">
+        ${avatarHtml(m.username, 44)}
+        <div class="login-member-name">${esc(m.displayName)}</div>
+        ${m.role === 'admin' ? '<div class="login-member-role">Admin</div>' : ''}
+      </div>`
+    ).join('');
+    renderPinPad();
+  }
+
+  function renderPinPad() {
+    const keys = [1,2,3,4,5,6,7,8,9,'',0,'⌫'];
+    document.getElementById('pinPad').innerHTML = keys.map(k =>
+      k === '' ? `<button class="pin-key pin-empty" disabled></button>`
+               : `<button class="pin-key" onclick="pinKey('${k}')">${k}</button>`
+    ).join('');
+  }
+
+  function selectMember(username) {
+    selectedMember = username;
+    pinDigits = [];
+    document.getElementById('pinError').textContent = '';
+    document.getElementById('loginSelectedName').textContent =
+      loginMembers.find(m => m.username === username)?.displayName || username;
+    document.querySelectorAll('.login-member-card').forEach(c =>
+      c.classList.toggle('selected', c.dataset.username === username)
+    );
+    document.getElementById('loginMembers').style.display     = 'none';
+    document.getElementById('loginPinSection').style.display  = 'block';
+    updatePinDots();
+  }
+
+  function backToMembers() {
+    selectedMember = null;
+    pinDigits = [];
+    document.getElementById('loginMembers').style.display     = 'flex';
+    document.getElementById('loginPinSection').style.display  = 'none';
+  }
+
+  function pinKey(k) {
+    if (k === '⌫') {
+      pinDigits.pop();
+    } else if (pinDigits.length < 4) {
+      pinDigits.push(String(k));
+    }
+    updatePinDots();
+    document.getElementById('pinError').textContent = '';
+    if (pinDigits.length === 4) submitPin();
+  }
+
+  function updatePinDots() {
+    for (let i = 0; i < 4; i++) {
+      document.getElementById(`pd${i}`)?.classList.toggle('filled', i < pinDigits.length);
+    }
+  }
+
+  async function submitPin() {
+    if (!selectedMember || pinDigits.length < 4) return;
+    const pin = pinDigits.join('');
+    try {
+      const res  = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: selectedMember, pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById('pinError').textContent = data.error || 'Incorrect PIN';
+        pinDigits = [];
+        updatePinDots();
+        return;
+      }
+      setToken(data.token);
+      state.user = parseJWT(data.token);
+      showApp();
+      renderNav();
+      renderSidebarUser();
+      await fetchAll();
+    } catch (err) {
+      document.getElementById('pinError').textContent = 'Login failed';
+      pinDigits = [];
+      updatePinDots();
+    }
+  }
+
+  // ── PIN change modal ───────────────────────────────────────────────────────
+  let pinModalTarget = null; // null = self, string = admin changing someone else
+
+  function openPinModal(targetUsername = null) {
+    pinModalTarget = targetUsername;
+    const isOther  = targetUsername && targetUsername !== state.user?.username;
+    document.getElementById('pinModalTarget').textContent = isOther
+      ? `Changing PIN for: ${targetUsername}` : '';
+    document.getElementById('pinCurrent').value  = '';
+    document.getElementById('pinNew').value      = '';
+    document.getElementById('pinConfirm').value  = '';
+    document.getElementById('pinModalError').textContent = '';
+    // If admin changing someone else, hide current PIN field
+    document.getElementById('pinCurrent').closest('.form-field').style.display =
+      isOther ? 'none' : '';
+    document.getElementById('pinModal').style.display = 'flex';
+  }
+
+  function closePinModal() {
+    document.getElementById('pinModal').style.display = 'none';
+    pinModalTarget = null;
+  }
+
+  async function submitPinChange() {
+    const currentPin = document.getElementById('pinCurrent').value.trim();
+    const newPin     = document.getElementById('pinNew').value.trim();
+    const confirmPin = document.getElementById('pinConfirm').value.trim();
+    const errEl      = document.getElementById('pinModalError');
+    errEl.textContent = '';
+
+    if (!/^\d{4}$/.test(newPin)) { errEl.textContent = 'PIN must be 4 digits'; return; }
+    if (newPin !== confirmPin)    { errEl.textContent = 'PINs do not match'; return; }
+
+    const body = { newPin };
+    if (pinModalTarget && pinModalTarget !== state.user?.username) {
+      body.targetUsername = pinModalTarget;
+    } else {
+      if (!currentPin) { errEl.textContent = 'Enter your current PIN'; return; }
+      body.currentPin = currentPin;
+    }
+
+    try {
+      const res  = await authFetch('/auth/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent = data.error || 'Failed'; return; }
+      closePinModal();
+    } catch (err) {
+      errEl.textContent = 'Request failed';
+    }
+  }
+
+  // ── Startup auth check ─────────────────────────────────────────────────────
+  async function checkAuth() {
+    const token = getToken();
+    if (token) {
+      const user = parseJWT(token);
+      if (user) {
+        state.user = user;
+        showApp();
+        renderNav();
+        renderSidebarUser();
+        await fetchAll();
+        return;
+      }
+    }
+    showLoginScreen();
+    await initLoginScreen();
+  }
 
   const INTERVAL_LABELS = {
     '10min': '10 min', '30min': '30 min',
@@ -1181,20 +1573,31 @@
   // ── Data fetching ──────────────────────────────────────────────────────────
   async function fetchAll() {
     try {
-      const [tr, pr, ar, rr, mr, rcr] = await Promise.all([
-        fetch('/tasks').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/performance').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/archive').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/resources').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/tasks-meta').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/recurring').then(r => r.ok ? r.json() : null).catch(() => null),
+      const [tr, pr, ar, rr, mr, rcr, ptr] = await Promise.all([
+        authFetch('/tasks').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/performance').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/archive').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/resources').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/tasks-meta').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/recurring').then(r => r.ok ? r.json() : null).catch(() => null),
+        authFetch('/personal/tasks').then(r => r.ok ? r.json() : null).catch(() => null),
       ]);
-      if (tr?.tasks) state.tasks = tr.tasks.filter(t => t.status !== 'Done');
-      if (pr?.members) state.perf = pr;
-      if (ar?.tasks) state.archive = ar.tasks;
-      if (rr?.resources) state.resources = rr.resources;
-      if (mr?.meta) state.tasksMeta = mr.meta;
-      if (rcr?.recurring) state.recurring = rcr.recurring;
+      if (tr?.tasks) {
+        const all = tr.tasks.filter(t => t.status !== 'Done');
+        // Members only see tasks assigned to them or unassigned
+        if (state.user?.role === 'member') {
+          const me = state.user.username;
+          state.tasks = all.filter(t => !t.assignees?.length || t.assignees.includes(me));
+        } else {
+          state.tasks = all;
+        }
+      }
+      if (pr?.members)    state.perf          = pr;
+      if (ar?.tasks)      state.archive        = ar.tasks;
+      if (rr?.resources)  state.resources      = rr.resources;
+      if (mr?.meta)       state.tasksMeta      = mr.meta;
+      if (rcr?.recurring) state.recurring      = rcr.recurring;
+      if (ptr?.tasks)     state.personalTasks  = ptr.tasks;
       flashDot();
     } catch (e) {
       console.warn('[taskr] fetch error:', e.message);
@@ -1213,11 +1616,13 @@
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   function navigate(page) {
+    // Role protection: members can't see Performance
+    if (page === 'performance' && state.user?.role !== 'admin') {
+      page = 'dashboard';
+    }
     state.page = page;
     state.filter = { status: 'All', search: '', category: '' };
-    document.querySelectorAll('.nav-item').forEach(el =>
-      el.classList.toggle('active', el.dataset.page === page)
-    );
+    renderNav();
     closePanel();
     render();
   }
@@ -1240,8 +1645,8 @@
     document.getElementById('panel').classList.add('open');
 
     const [ur, rr] = await Promise.all([
-      fetch('/users').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/reminders').then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch('/users').then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch('/reminders').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
     if (panelTaskId !== taskId) return; // panel was reopened for a different task
     const users = ur?.users || [];
@@ -1589,6 +1994,7 @@
                   <td><div style="display:flex;align-items:center;gap:10px">
                     ${avatarHtml(m.name,28)}
                     <span style="font-weight:500">${esc(m.name)}</span>
+                    ${state.user?.role==='admin' ? `<button class="sidebar-action-btn" style="margin-left:4px" onclick="openPinModal('${esc(m.name)}')" title="Change PIN">🔑</button>` : ''}
                   </div></td>
                   <td style="font-variant-numeric:tabular-nums">${m.assigned}</td>
                   <td style="color:var(--green);font-weight:600;font-variant-numeric:tabular-nums">${m.completed}</td>
@@ -1637,7 +2043,7 @@
   async function openCreatePanel(preStatus = '') {
     let users = [];
     try {
-      const r = await fetch('/users');
+      const r = await authFetch('/users');
       if (r.ok) users = (await r.json()).users || [];
     } catch (_) {}
 
@@ -1727,7 +2133,7 @@
     errEl.style.display = 'none';
 
     try {
-      const res = await fetch('/tasks', {
+      const res = await authFetch('/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1768,12 +2174,12 @@
     render();
 
     // Cancel any active reminder immediately (fire-and-forget)
-    fetch(`/reminders/${taskId}`, { method: 'DELETE' }).catch(console.error);
+    authFetch(`/reminders/${taskId}`, { method: 'DELETE' }).catch(console.error);
 
     try {
       await Promise.all([
-        fetch(`/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Done' }) }),
-        fetch(`/archive/${taskId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(archived) }),
+        authFetch(`/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Done' }) }),
+        authFetch(`/archive/${taskId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(archived) }),
       ]);
     } catch (err) {
       // Rollback
@@ -1804,7 +2210,7 @@
     render();
 
     try {
-      await fetch(`/archive/${taskId}`, { method: 'DELETE' });
+      await authFetch(`/archive/${taskId}`, { method: 'DELETE' });
     } catch (err) {
       // Rollback
       state.tasks = state.tasks.filter(t => t.id !== taskId);
@@ -1854,7 +2260,7 @@
     if (errEl) errEl.style.display = 'none';
 
     try {
-      const res = await fetch(`/tasks/${taskId}`, {
+      const res = await authFetch(`/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1871,7 +2277,7 @@
       // Persist assignees in meta so table/kanban display stays in sync
       if (!state.tasksMeta[taskId]) state.tasksMeta[taskId] = { notes: '', sop: '', sopLink: '', resources: [], assignees: [] };
       state.tasksMeta[taskId].assignees = selectedNames;
-      fetch(`/tasks-meta/${taskId}`, {
+      authFetch(`/tasks-meta/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ assignees: selectedNames }),
@@ -1978,7 +2384,7 @@
     if (!title) { if (errEl) { errEl.textContent = 'Title is required'; errEl.style.display = 'block'; } return; }
     btn.disabled = true; btn.textContent = 'Creating…';
     try {
-      const res = await fetch('/resources', {
+      const res = await authFetch('/resources', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, content, category }),
@@ -2003,7 +2409,7 @@
     if (!title) { if (errEl) { errEl.textContent = 'Title is required'; errEl.style.display = 'block'; } return; }
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const res = await fetch(`/resources/${id}`, {
+      const res = await authFetch(`/resources/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, content, category }),
@@ -2025,7 +2431,7 @@
   async function deleteResource(id) {
     if (!confirm('Delete this resource? This cannot be undone.')) return;
     try {
-      await fetch(`/resources/${id}`, { method: 'DELETE' });
+      await authFetch(`/resources/${id}`, { method: 'DELETE' });
       state.resources = state.resources.filter(r => r.id !== id);
       // Remove any task links pointing to this resource
       Object.keys(state.tasksMeta).forEach(tid => {
@@ -2070,7 +2476,7 @@
   async function saveTaskMeta(taskId) {
     const meta = getMetaFromPanel();
     try {
-      await fetch(`/tasks-meta/${taskId}`, {
+      await authFetch(`/tasks-meta/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(meta),
@@ -2136,7 +2542,7 @@
     }
     // Fire POST in background — no panel reload
     const assigneeNames = getPickerSelections('panel-pp');
-    fetch('/reminders', {
+    authFetch('/reminders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId, taskName, intervalKey, assigneeNames }),
@@ -2161,7 +2567,7 @@
         `</div>${warning}`;
     }
     // Fire DELETE in background — no panel reload
-    fetch(`/reminders/${taskId}`, { method: 'DELETE' })
+    authFetch(`/reminders/${taskId}`, { method: 'DELETE' })
       .catch(err => console.error('[cancelReminderForTask]', err));
   }
 
@@ -2257,7 +2663,7 @@
   }
 
   async function toggleRecurringPause(id) {
-    const res = await fetch(`/recurring/${id}/toggle`, { method: 'POST' });
+    const res = await authFetch(`/recurring/${id}/toggle`, { method: 'POST' });
     if (res.ok) {
       const { recurring: updated } = await res.json();
       const idx = state.recurring.findIndex(r => r.id === id);
@@ -2268,7 +2674,7 @@
 
   async function deleteRecurring(id) {
     if (!confirm('Delete this recurring task? This cannot be undone.')) return;
-    const res = await fetch(`/recurring/${id}`, { method: 'DELETE' });
+    const res = await authFetch(`/recurring/${id}`, { method: 'DELETE' });
     if (res.ok) {
       state.recurring = state.recurring.filter(r => r.id !== id);
       render();
@@ -2438,7 +2844,7 @@
     try {
       const url    = panelRecurringId ? `/recurring/${panelRecurringId}` : '/recurring';
       const method = panelRecurringId ? 'PATCH' : 'POST';
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2537,7 +2943,7 @@
     task.status = newStatus;
     render();
     try {
-      const res = await fetch(`/tasks/${taskId}`, {
+      const res = await authFetch(`/tasks/${taskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -2569,7 +2975,7 @@
     render();
 
     try {
-      await fetch(`/tasks/${panelTaskId}`, {
+      await authFetch(`/tasks/${panelTaskId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -2720,12 +3126,204 @@
           </div>`}`;
   }
 
+  // ── My Tasks (member-only filtered view) ──────────────────────────────────
+  function renderMyTasks() {
+    const me    = state.user?.username || '';
+    const today = todayStr();
+    const tasks = state.tasks.filter(t => (t.assignees || []).includes(me));
+
+    return `
+      <div class="page-header">
+        <div class="page-title">My Tasks</div>
+      </div>
+      ${tasks.length === 0
+        ? '<div class="empty"><div class="empty-icon">✅</div>No tasks assigned to you</div>'
+        : `<div class="table-wrap"><table>
+            <thead><tr>
+              <th></th><th>Task</th><th>Priority</th><th>Due Date</th><th>Status</th>
+            </tr></thead>
+            <tbody>
+              ${tasks.map(t => {
+                const overdue = t.dueDate && t.dueDate < today && t.status !== 'Done';
+                return `<tr data-id="${esc(t.id)}" onclick="openPanel('${esc(t.id)}')">
+                  <td class="td-cb" onclick="event.stopPropagation()">
+                    <button class="task-cb" onclick="toggleDone('${esc(t.id)}')">
+                      <svg class="cb-check" viewBox="0 0 11 9" fill="none">
+                        <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </td>
+                  <td class="td-task">${esc(t.name)}</td>
+                  <td>${prioHtml(t.priority)}</td>
+                  <td style="${overdue?'color:var(--red);font-weight:600':''}">${dueDateHtml(t.dueDate)}</td>
+                  <td class="td-status">${statusPill(t.status)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table></div>`}`;
+  }
+
+  // ── Personal tasks ─────────────────────────────────────────────────────────
+  let personalPanelId = null; // null = create
+
+  function renderPersonal() {
+    const tasks = state.personalTasks;
+    const today = todayStr();
+    const active = tasks.filter(t => t.status !== 'done');
+    const done   = tasks.filter(t => t.status === 'done');
+
+    return `
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div class="page-title">Personal Tasks</div>
+        <button class="personal-new-btn" onclick="openPersonalPanel(null)">+ New Task</button>
+      </div>
+      ${active.length === 0 && done.length === 0
+        ? '<div class="empty"><div class="empty-icon">🗒️</div>No personal tasks yet — add one above</div>'
+        : `<div class="table-wrap"><table>
+            <thead><tr>
+              <th></th><th>Task</th><th>Priority</th><th>Due Date</th><th>Reminder</th>
+            </tr></thead>
+            <tbody>
+              ${active.map(t => {
+                const overdue = t.dueDate && t.dueDate < today;
+                return `<tr onclick="openPersonalPanel('${esc(t.id)}')">
+                  <td class="td-cb" onclick="event.stopPropagation()">
+                    <button class="task-cb" onclick="togglePersonalDone('${esc(t.id)}')">
+                      <svg class="cb-check" viewBox="0 0 11 9" fill="none">
+                        <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </td>
+                  <td class="td-task">${esc(t.name)}</td>
+                  <td>${prioHtml(t.priority)}</td>
+                  <td style="${overdue?'color:var(--red);font-weight:600':''}">${dueDateHtml(t.dueDate)}</td>
+                  <td style="font-size:12px;color:var(--muted)">
+                    ${t.reminderInterval ? INTERVAL_LABELS[t.reminderInterval] || t.reminderInterval : '—'}
+                  </td>
+                </tr>`;
+              }).join('')}
+              ${done.map(t => `
+                <tr class="ptask-done-row" onclick="openPersonalPanel('${esc(t.id)}')">
+                  <td class="td-cb"></td>
+                  <td class="td-task">${esc(t.name)}</td>
+                  <td>—</td><td>—</td><td>—</td>
+                </tr>`).join('')}
+            </tbody>
+          </table></div>`}`;
+  }
+
+  function openPersonalPanel(taskId) {
+    personalPanelId = taskId;
+    const task = taskId ? state.personalTasks.find(t => t.id === taskId) : null;
+    document.getElementById('panelTitle').textContent = task ? 'Personal Task' : 'New Personal Task';
+    document.getElementById('panelBody').innerHTML    = personalPanelContent(task);
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('active');
+  }
+
+  function personalPanelContent(task) {
+    const t = task || {};
+    return `
+      <div class="ptask-form-field">
+        <label class="ptask-label">Task Name</label>
+        <input id="pt_name" class="form-input" type="text" value="${esc(t.name||'')}" placeholder="What needs to be done?">
+      </div>
+      <div class="ptask-form-field">
+        <label class="ptask-label">Due Date</label>
+        <input id="pt_due" class="form-input" type="date" value="${esc(t.dueDate||'')}">
+      </div>
+      <div class="ptask-form-field">
+        <label class="ptask-label">Priority</label>
+        <select id="pt_prio" class="form-input">
+          <option value="">—</option>
+          ${['🔴 High','🟡 Medium','🟢 Low'].map(p => {
+            const label = p.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u, '').trim();
+            return `<option value="${esc(p)}"${t.priority===p?' selected':''}>${label}</option>`;
+          }).join('')}
+        </select>
+      </div>
+      <div class="ptask-form-field">
+        <label class="ptask-label">Reminder</label>
+        <select id="pt_reminder" class="form-input">
+          <option value="">None</option>
+          ${Object.entries(INTERVAL_LABELS).map(([k,v]) =>
+            `<option value="${k}"${t.reminderInterval===k?' selected':''}>${v}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="ptask-form-field">
+        <label class="ptask-label">Notes</label>
+        <textarea id="pt_notes" class="form-input" rows="4" style="resize:vertical">${esc(t.notes||'')}</textarea>
+      </div>
+      <button class="panel-save-btn" onclick="savePersonalTask()">${task ? 'Save' : 'Create Task'}</button>
+      ${task ? `<button class="modal-cancel-btn" style="margin-top:8px" onclick="deletePersonalTask('${esc(task.id)}')">Delete Task</button>` : ''}
+    `;
+  }
+
+  async function savePersonalTask() {
+    const name     = document.getElementById('pt_name')?.value.trim();
+    if (!name) return;
+    const payload = {
+      name,
+      dueDate:          document.getElementById('pt_due')?.value      || null,
+      priority:         document.getElementById('pt_prio')?.value     || null,
+      reminderInterval: document.getElementById('pt_reminder')?.value || null,
+      notes:            document.getElementById('pt_notes')?.value    || '',
+    };
+    try {
+      if (personalPanelId) {
+        const res  = await authFetch(`/personal/tasks/${personalPanelId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const idx = state.personalTasks.findIndex(t => t.id === personalPanelId);
+          if (idx !== -1) state.personalTasks[idx] = data.task;
+        }
+      } else {
+        const res  = await authFetch('/personal/tasks', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok) state.personalTasks.unshift(data.task);
+      }
+    } catch (err) { console.error('[personal save]', err); }
+    closePanel();
+    render();
+  }
+
+  async function togglePersonalDone(taskId) {
+    const task = state.personalTasks.find(t => t.id === taskId);
+    if (!task) return;
+    const newStatus = task.status === 'done' ? 'active' : 'done';
+    task.status = newStatus; // optimistic
+    render();
+    try {
+      await authFetch(`/personal/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (err) { console.error('[personal toggle]', err); }
+  }
+
+  async function deletePersonalTask(taskId) {
+    state.personalTasks = state.personalTasks.filter(t => t.id !== taskId);
+    closePanel();
+    render();
+    try {
+      await authFetch(`/personal/tasks/${taskId}`, { method: 'DELETE' });
+    } catch (err) { console.error('[personal delete]', err); }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   function render() {
     const main = document.getElementById('main');
     switch (state.page) {
       case 'dashboard':   main.innerHTML = renderDashboard();   break;
       case 'tasks':       main.innerHTML = renderTasks();       break;
+      case 'mytasks':     main.innerHTML = renderMyTasks();     break;
+      case 'personal':    main.innerHTML = renderPersonal();    break;
       case 'performance': main.innerHTML = renderPerformance(); break;
       case 'resources':   main.innerHTML = renderResources();   break;
       case 'completed':   main.innerHTML = renderCompleted();   break;
@@ -2734,8 +3332,8 @@
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
-  fetchAll();
-  setInterval(fetchAll, 60000);
+  checkAuth();
+  setInterval(() => { if (state.user) fetchAll(); }, 60000);
 </script>
 </body>
 </html>

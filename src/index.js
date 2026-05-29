@@ -13,6 +13,8 @@ const archive = require('./archive');
 const resources = require('./resources');
 const tasksMeta = require('./tasks-meta');
 const recurring = require('./recurring');
+const auth = require('./auth');
+const personal = require('./personal');
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
@@ -48,6 +50,113 @@ app.use(
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ──────────────────────────────────────────────────────────────────
+
+// ── Auth routes ──────────────────────────────────────────────────────────────
+
+// Returns member list for the login screen (no auth required)
+app.get('/auth/members', (req, res) => {
+  res.json({ members: auth.MEMBERS.map(({ username, displayName, role, initials }) =>
+    ({ username, displayName, role, initials })
+  )});
+});
+
+// Login: POST { username, pin } → { token }
+app.post('/auth/login', async (req, res) => {
+  const { username, pin } = req.body;
+  if (!username || !pin) return res.status(400).json({ error: 'username and pin required' });
+  try {
+    const ok = await auth.verifyPin(username, String(pin));
+    if (!ok) return res.status(401).json({ error: 'Incorrect PIN' });
+    const token = auth.createToken(username);
+    if (!token) return res.status(400).json({ error: 'Unknown member' });
+    res.json({ token });
+  } catch (err) {
+    console.error('[POST /auth/login]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change own PIN: POST { currentPin, newPin }
+// Admin change anyone's PIN: POST { newPin, targetUsername } (no currentPin check)
+app.post('/auth/pin', auth.requireAuth, async (req, res) => {
+  const { currentPin, newPin, targetUsername } = req.body;
+  const isAdmin  = req.user.role === 'admin';
+  const changing = isAdmin && targetUsername ? targetUsername : req.user.username;
+  if (!newPin || String(newPin).length !== 4 || !/^\d{4}$/.test(newPin)) {
+    return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
+  }
+  try {
+    // Non-admin always verifies current PIN; admin can skip when changing others
+    if (!isAdmin || changing === req.user.username) {
+      if (!currentPin) return res.status(400).json({ error: 'currentPin required' });
+      const ok = await auth.verifyPin(changing, String(currentPin));
+      if (!ok) return res.status(401).json({ error: 'Current PIN is incorrect' });
+    }
+    await auth.setPin(changing, newPin);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[POST /auth/pin]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Personal task routes (auth required) ─────────────────────────────────────
+
+app.get('/personal/tasks', auth.requireAuth, async (req, res) => {
+  try {
+    const tasks = await personal.getTasks(req.user.username);
+    res.json({ tasks });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/personal/tasks', auth.requireAuth, async (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Task name required' });
+  try {
+    const task = await personal.addTask(req.user.username, req.body);
+    // Set reminder if interval provided
+    if (task.reminderInterval && reminders.INTERVAL_MINUTES[task.reminderInterval]) {
+      await reminders.setPersonal(req.user.username, task.id, task.name, task.reminderInterval, req.user.telegram);
+    }
+    res.status(201).json({ task });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/personal/tasks/:id', auth.requireAuth, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const taskId   = req.params.id;
+    const updated  = await personal.updateTask(username, taskId, req.body);
+    if (!updated) return res.status(404).json({ error: 'Task not found' });
+
+    // Handle reminder interval change
+    const interval = req.body.reminderInterval;
+    if (interval !== undefined) {
+      if (interval && reminders.INTERVAL_MINUTES[interval]) {
+        await reminders.setPersonal(username, taskId, updated.name, interval, req.user.telegram);
+      } else {
+        await reminders.cancelPersonal(username, taskId);
+      }
+    }
+
+    // Mark done → cancel reminder
+    if (req.body.status === 'done') {
+      await reminders.cancelPersonal(username, taskId);
+    }
+    res.json({ task: updated });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/personal/tasks/:id', auth.requireAuth, async (req, res) => {
+  try {
+    const ok = await personal.deleteTask(req.user.username, req.params.id);
+    await reminders.cancelPersonal(req.user.username, req.params.id);
+    if (!ok) return res.status(404).json({ error: 'Task not found' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Notion webhook receiver ───────────────────────────────────────────────────
 
 // Notion webhook receiver
 app.post('/webhook', handleWebhook);
@@ -86,7 +195,7 @@ app.get('/tasks', async (req, res) => {
 });
 
 // Creates a new task in the Notion Tasks database
-app.post('/tasks', async (req, res) => {
+app.post('/tasks', auth.requireAdmin, async (req, res) => {
   const { name, assigneeId, assigneeIds, dueDate, status, priority, category } = req.body;
   if (!name?.trim()) {
     return res.status(400).json({ error: 'Task name is required' });
@@ -155,7 +264,7 @@ app.get('/sop', async (req, res) => {
 });
 
 // Updates any fields of a task in Notion
-app.patch('/tasks/:id', async (req, res) => {
+app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
   const { id } = req.params;
   const body = req.body;
   const properties = {};
@@ -454,6 +563,24 @@ async function handleBotCommand(update) {
   const text = msg.text.replace(/@\w+/, '').trim();
   const chatId = msg.chat.id;
 
+  // /register — save this DM's chat ID for personal reminders
+  if (text === '/register') {
+    const tgUsername = msg.from?.username;
+    if (tgUsername) {
+      await personal.setChatId(tgUsername, chatId);
+      await telegram.sendMessage(
+        `✅ Registered! Personal task reminders will now come directly to you here.`,
+        chatId
+      );
+    } else {
+      await telegram.sendMessage(
+        `❌ No Telegram username found on your account. Set one in Settings → Username.`,
+        chatId
+      );
+    }
+    return;
+  }
+
   if (!text.startsWith('/sop')) return;
 
   const taskName = text.slice(4).trim();
@@ -487,6 +614,14 @@ async function handleBotCommand(update) {
 
 async function start() {
   const port = process.env.PORT || 3000;
+
+  // Auto-initialise PINs on first boot
+  try {
+    const ready = await auth.isPinsInitialized();
+    if (!ready) await auth.initDefaultPins();
+  } catch (err) {
+    console.error('[auth] PIN init error:', err.message);
+  }
 
   archive.load();
   resources.load();
