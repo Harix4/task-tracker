@@ -46,10 +46,10 @@
       --td-border: rgba(0,0,0,0.05);
       --td-bg: transparent;
       --tr-hover: rgba(0,0,0,0.03);
-      --kb-card-bg: rgba(0,0,0,0.025);
-      --kb-card-hover: rgba(0,0,0,0.05);
-      --kb-col-bg: rgba(0,0,0,0.02);
-      --kb-col-header-bg: rgba(0,0,0,0.03);
+      --kb-card-bg: #ffffff;
+      --kb-card-hover: rgba(0,0,0,0.04);
+      --kb-col-bg: rgba(0,0,0,0.04);
+      --kb-col-header-bg: #ebebeb;
       --kb-footer-border: rgba(0,0,0,0.05);
       --kb-add-hover: rgba(0,0,0,0.04);
       --kb-move-btn: rgba(0,0,0,0.05);
@@ -87,7 +87,7 @@
       --res-item-border: rgba(0,0,0,0.08);
       --res-item-bg: rgba(0,0,0,0.02);
       --kb-done-badge: rgba(0,0,0,0.08);
-      --kb-count-bg: rgba(0,0,0,0.07);
+      --kb-count-bg: rgba(0,0,0,0.10);
       --cb-border: rgba(0,0,0,0.25);
       --cb-hover-bg: rgba(0,0,0,0.06);
     }
@@ -839,7 +839,7 @@
       display: flex; align-items: flex-start;
       justify-content: space-between; gap: 8px; margin-bottom: 10px;
     }
-    .kb-card-name { font-size: 15px; font-weight: 600; color: #f5f5f7; line-height: 1.35; flex: 1; }
+    .kb-card-name { font-size: 15px; font-weight: 600; color: var(--text); line-height: 1.35; flex: 1; }
     .kb-done-badge {
       width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
       background: #34c759; display: flex; align-items: center; justify-content: center;
@@ -2299,6 +2299,8 @@
     if (page === 'performance' && state.user?.role !== 'admin') {
       page = 'dashboard';
     }
+    // Always land on list view when navigating to tasks — board is opt-in via the toggle
+    if (page === 'tasks') state.viewMode = 'table';
     state.page = page;
     state.filter = { status: 'All', search: '', category: '' };
     renderNav();
