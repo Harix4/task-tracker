@@ -549,82 +549,6 @@ app.get('/performance', async (req, res) => {
   }
 });
 
-// ── Telegram bot polling ─────────────────────────────────────────────────────
-
-let pollingOffset = 0;
-
-async function pollTelegram() {
-  while (true) {
-    try {
-      const response = await telegram.getUpdates(pollingOffset);
-      if (response.ok && Array.isArray(response.result)) {
-        for (const update of response.result) {
-          pollingOffset = update.update_id + 1;
-          handleBotCommand(update).catch(console.error);
-        }
-      }
-    } catch (err) {
-      console.error('[telegram poll]', err.message);
-      await new Promise((r) => setTimeout(r, 5000));
-    }
-  }
-}
-
-async function handleBotCommand(update) {
-  const msg = update.message;
-  if (!msg?.text) return;
-
-  // Strip bot @mention for group chats: /sop@mybot → /sop
-  const text = msg.text.replace(/@\w+/, '').trim();
-  const chatId = msg.chat.id;
-
-  // /register — save this DM's chat ID for personal reminders
-  if (text === '/register') {
-    const tgUsername = msg.from?.username;
-    if (tgUsername) {
-      await personal.setChatId(tgUsername, chatId);
-      await telegram.sendMessage(
-        `✅ Registered! Personal task reminders will now come directly to you here.`,
-        chatId
-      );
-    } else {
-      await telegram.sendMessage(
-        `❌ No Telegram username found on your account. Set one in Settings → Username.`,
-        chatId
-      );
-    }
-    return;
-  }
-
-  if (!text.startsWith('/sop')) return;
-
-  const taskName = text.slice(4).trim();
-  if (!taskName) {
-    await telegram.sendMessage('Usage: `/sop [task name]`', chatId);
-    return;
-  }
-
-  const tasks = await notion.queryTasksDatabase({
-    property: 'Task name',
-    title: { contains: taskName },
-  });
-
-  if (tasks.length === 0) {
-    await telegram.sendMessage(`No task found matching "${taskName}".`, chatId);
-    return;
-  }
-
-  const match = tasks[0];
-  const name = notion.getTaskName(match);
-  const sop = notion.getSOP(match);
-
-  if (sop) {
-    await telegram.sendMessage(`SOP for *${name}*:\n${sop}`, chatId);
-  } else {
-    await telegram.sendMessage(`No SOP set for *${name}* — add one in Notion.`, chatId);
-  }
-}
-
 // ── Startup ──────────────────────────────────────────────────────────────────
 
 async function start() {
@@ -644,9 +568,6 @@ async function start() {
   recurring.load();
   await reminders.load();
   startScheduler();
-
-  // Long-poll Telegram in the background — does not block the HTTP server
-  pollTelegram().catch(console.error);
 
   app.listen(port, () => {
     console.log(`[server] Taskr listening on http://localhost:${port}`);

@@ -35,12 +35,4 @@ async function sendMessage(text, chatId = process.env.TELEGRAM_CHAT_ID) {
   });
 }
 
-async function getUpdates(offset = 0, timeout = 30) {
-  return telegramRequest('getUpdates', {
-    offset,
-    timeout,
-    allowed_updates: ['message'],
-  });
-}
-
-module.exports = { sendMessage, getUpdates };
+module.exports = { sendMessage };
