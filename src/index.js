@@ -161,6 +161,46 @@ app.delete('/personal/tasks/:id', auth.requireAuth, async (req, res) => {
 // Notion webhook receiver
 app.post('/webhook', handleWebhook);
 
+// ── Telegram webhook receiver ─────────────────────────────────────────────────
+
+app.post('/telegram-webhook', async (req, res) => {
+  // Acknowledge immediately — Telegram expects 200 within a few seconds
+  res.sendStatus(200);
+
+  try {
+    const msg = req.body?.message;
+    if (!msg?.text) return;
+
+    // Strip bot @mention: /register@MyBot → /register
+    const text    = msg.text.replace(/@\w+/, '').trim();
+    const chatId  = String(msg.chat.id);
+    const tgUser  = msg.from?.username;
+
+    if (text !== '/register') return;
+
+    if (!tgUser) {
+      await telegram.sendMessage(
+        '❌ No Telegram username found on your account. Set one in Telegram Settings → Username, then try again.',
+        chatId
+      );
+      return;
+    }
+
+    // Check the username is a known team member
+    const member = team.lookup(tgUser);
+    await personal.setChatId(tgUser, chatId);
+
+    const name = member ? member.name : `@${tgUser}`;
+    await telegram.sendMessage(
+      `✅ Registered! You'll now receive personal task reminders as DMs.`,
+      chatId
+    );
+    console.log(`[telegram-webhook] /register: ${name} (@${tgUser}) chatId=${chatId}`);
+  } catch (err) {
+    console.error('[telegram-webhook]', err.message);
+  }
+});
+
 // Returns Notion workspace users for the assignee picker
 app.get('/users', async (req, res) => {
   try {
@@ -569,8 +609,26 @@ async function start() {
   await reminders.load();
   startScheduler();
 
-  app.listen(port, () => {
+  app.listen(port, async () => {
     console.log(`[server] Taskr listening on http://localhost:${port}`);
+
+    // Register Telegram webhook so /register DMs are delivered here
+    const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
+    if (domain) {
+      const webhookUrl = `https://${domain}/telegram-webhook`;
+      try {
+        const result = await telegram.setWebhook(webhookUrl);
+        if (result.ok) {
+          console.log(`[telegram] webhook registered → ${webhookUrl}`);
+        } else {
+          console.warn('[telegram] setWebhook failed:', result.description);
+        }
+      } catch (err) {
+        console.error('[telegram] setWebhook error:', err.message);
+      }
+    } else {
+      console.log('[telegram] RAILWAY_PUBLIC_DOMAIN not set — skipping webhook registration (use ngrok locally)');
+    }
   });
 }
 

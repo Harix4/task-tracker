@@ -35,4 +35,8 @@ async function sendMessage(text, chatId = process.env.TELEGRAM_CHAT_ID) {
   });
 }
 
-module.exports = { sendMessage };
+async function setWebhook(url) {
+  return telegramRequest('setWebhook', { url });
+}
+
+module.exports = { sendMessage, setWebhook };
