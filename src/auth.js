@@ -1,10 +1,6 @@
 const crypto = require('crypto');
 const jwt    = require('jsonwebtoken');
-const { getRedis } = require('./redis-client');
-
-const redis = new Proxy({}, {
-  get: (_, prop) => (...args) => getRedis()[prop](...args),
-});
+const redis = require('./redis-client');
 
 const JWT_SECRET  = process.env.JWT_SECRET || 'taskr-dev-secret-change-in-prod';
 const JWT_EXPIRES = '30d';

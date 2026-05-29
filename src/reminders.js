@@ -1,4 +1,4 @@
-const { getRedis } = require('./redis-client');
+const redis    = require('./redis-client');
 const notion   = require('./notion');
 const telegram = require('./telegram');
 const team     = require('./team');
@@ -26,11 +26,6 @@ const INTERVAL_MINUTES = {
   '4hr':   240, '6hr':   360,
   '8hr':   480,
 };
-
-// Lazy accessor so the client is created after dotenv has loaded
-const redis = new Proxy({}, {
-  get: (_, prop) => (...args) => getRedis()[prop](...args),
-});
 
 const TEAM_PREFIX     = 'reminder:';
 const PERSONAL_PREFIX = 'reminder:personal:';
