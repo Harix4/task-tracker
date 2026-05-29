@@ -806,6 +806,11 @@
       padding: 0 0 0 2px; font-family: var(--font);
     }
     .reminder-cancel-btn:hover { color: var(--red); }
+    .rem-overdue-warning {
+      margin-top: 8px; font-size: 12px; color: #ff9500;
+      background: rgba(255,149,0,.1); border: 1px solid rgba(255,149,0,.25);
+      border-radius: 8px; padding: 6px 10px; line-height: 1.4;
+    }
 
     /* ── Recurring tasks page ───────────────────────────────────── */
     .rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px; margin-top: 16px; }
@@ -1273,6 +1278,12 @@
     const hasSop   = !!(meta.sop?.trim() || meta.sopLink?.trim());
     const hasRes   = !!(meta.resources?.length);
 
+    const today = new Date().toISOString().split('T')[0];
+    const isOverdue = !!(t.dueDate && t.dueDate < today && t.status !== 'Done');
+    const overdueWarning = isOverdue && !activeReminder
+      ? `<div class="rem-overdue-warning">⚠️ This task is overdue. Reminders will send overdue alerts instead of regular reminders.</div>`
+      : '';
+
     const reminderSection = activeReminder
       ? `<div class="reminder-active-pill">
            ⏰ Reminding every ${INTERVAL_LABELS[activeReminder.intervalKey] || activeReminder.intervalKey}
@@ -1282,7 +1293,7 @@
            ${REMINDER_OPTIONS.map(([key, label]) =>
              `<button type="button" class="rem-pill" onclick="setReminderForTask('${esc(t.id)}','${esc(t.name)}','${key}')">${label}</button>`
            ).join('')}
-         </div>`;
+         </div>${overdueWarning}`;
 
     return `
       <div class="form-field">
@@ -1756,6 +1767,9 @@
     state.archive.unshift(archived);
     render();
 
+    // Cancel any active reminder immediately (fire-and-forget)
+    fetch(`/reminders/${taskId}`, { method: 'DELETE' }).catch(console.error);
+
     try {
       await Promise.all([
         fetch(`/tasks/${taskId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Done' }) }),
@@ -2134,12 +2148,17 @@
     const sec = document.getElementById('panel-reminder-section');
     const task = (state.tasks || []).find(t => t.id === taskId);
     if (sec && task) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const taskOverdue = !!(task.dueDate && task.dueDate < todayStr && task.status !== 'Done');
+      const warning = taskOverdue
+        ? `<div class="rem-overdue-warning">⚠️ This task is overdue. Reminders will send overdue alerts instead of regular reminders.</div>`
+        : '';
       sec.innerHTML =
         `<div class="rem-pills">` +
         REMINDER_OPTIONS.map(([key, label]) =>
           `<button type="button" class="rem-pill" onclick="setReminderForTask('${esc(taskId)}','${esc(task.name)}','${key}')">${label}</button>`
         ).join('') +
-        `</div>`;
+        `</div>${warning}`;
     }
     // Fire DELETE in background — no panel reload
     fetch(`/reminders/${taskId}`, { method: 'DELETE' })

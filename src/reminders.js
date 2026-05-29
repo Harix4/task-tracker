@@ -62,15 +62,36 @@ function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
 
 async function fire(r) {
   try {
-    const page = await notion.getPage(r.taskId);
-    if (notion.getStatus(page) === 'Done') { await cancel(r.taskId); return; }
-    await telegram.sendMessage(buildMessage({
-      name:        notion.getTaskName(page),
-      assignees:   notion.getAssigneeNames(page),
-      dueDate:     notion.getDueDate(page),
-      status:      notion.getStatus(page),
-      intervalKey: r.intervalKey,
-    }));
+    const page      = await notion.getPage(r.taskId);
+    const status    = notion.getStatus(page);
+    const taskName  = notion.getTaskName(page);
+    const dueDate   = notion.getDueDate(page);
+    const assignees = notion.getAssigneeNames(page);
+
+    // ── Task complete: cancel reminder and send one final notice ──────────────
+    if (status === 'Done') {
+      await cancel(r.taskId);
+      await telegram.sendMessage(`✅ Reminder cancelled — ${taskName} is marked complete`);
+      return;
+    }
+
+    // ── Task overdue: send an overdue alert instead of a normal reminder ──────
+    const today = new Date().toISOString().split('T')[0];
+    if (dueDate && dueDate < today) {
+      const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
+      const daysOverdue = Math.floor((Date.now() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24));
+      await telegram.sendMessage(
+        `🚨 *OVERDUE: ${taskName}*\n` +
+        `Assigned to: ${tags}\n` +
+        `Was due: ${dueDate} (${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} ago)\n` +
+        `Status: ${status || 'No status'}\n` +
+        `Please update this task in Notion.`
+      );
+      return;
+    }
+
+    // ── Normal reminder ───────────────────────────────────────────────────────
+    await telegram.sendMessage(buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }));
   } catch (err) {
     console.error('[reminders] fire error:', err.message);
   }
