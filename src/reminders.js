@@ -25,6 +25,12 @@ const redis = new Redis({
 const TEAM_PREFIX     = 'reminder:';
 const PERSONAL_PREFIX = 'reminder:personal:';
 
+// ── Notification routing contract ─────────────────────────────────────────────
+// TEAM tasks   → always TELEGRAM_CHAT_ID (group chat). No exceptions.
+// PERSONAL tasks → always personal:chatid:{telegramUsername} DM.
+//                  If the key is not in Redis → log warning, send nothing.
+//                  NEVER fall back to group chat for personal tasks.
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function parse(v) {
@@ -60,9 +66,10 @@ function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
   );
 }
 
-// ── Team reminder fire ────────────────────────────────────────────────────────
+// ── Team reminder fire → GROUP CHAT ONLY ─────────────────────────────────────
 
 async function fireTeam(r) {
+  const GROUP = process.env.TELEGRAM_CHAT_ID; // always group, never personal
   try {
     const page      = await notion.getPage(r.taskId);
     const status    = notion.getStatus(page);
@@ -70,14 +77,14 @@ async function fireTeam(r) {
     const dueDate   = notion.getDueDate(page);
     const assignees = notion.getAssigneeNames(page);
 
-    // Done → cancel + notify
+    // Done → cancel + notify group
     if (status === 'Done') {
       await cancel(r.taskId);
-      await telegram.sendMessage(`✅ Reminder cancelled — ${taskName} is marked complete`);
+      await telegram.sendMessage(`✅ Reminder cancelled — ${taskName} is marked complete`, GROUP);
       return;
     }
 
-    // Overdue → send overdue alert to group
+    // Overdue → overdue alert to group
     const today = new Date().toISOString().split('T')[0];
     if (dueDate && dueDate < today) {
       const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
@@ -87,13 +94,17 @@ async function fireTeam(r) {
         `Assigned to: ${tags}\n` +
         `Was due: ${dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
         `Status: ${status || 'No status'}\n` +
-        `Please update this task in Notion.`
+        `Please update this task in Notion.`,
+        GROUP
       );
       return;
     }
 
     // Normal reminder to group
-    await telegram.sendMessage(buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }));
+    await telegram.sendMessage(
+      buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }),
+      GROUP
+    );
   } catch (err) {
     console.error('[reminders] fireTeam error:', err.message);
   }

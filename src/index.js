@@ -173,11 +173,12 @@ app.get('/users', async (req, res) => {
   }
 });
 
-// Returns all tasks from the Tasks database
-app.get('/tasks', async (req, res) => {
+// Returns tasks from Notion.
+// Admin → all tasks.  Member → only tasks assigned to them or unassigned.
+app.get('/tasks', auth.requireAuth, async (req, res) => {
   try {
     const pages = await notion.queryTasksDatabase();
-    const tasks = pages.map((page) => ({
+    let tasks = pages.map((page) => ({
       id: page.id,
       name: notion.getTaskName(page),
       assignees: (page.properties?.['Assigned to']?.people || []).map((u) => u.name || 'Unknown'),
@@ -187,6 +188,10 @@ app.get('/tasks', async (req, res) => {
       category: notion.getCategory(page),
       lastEdited: page.last_edited_time,
     }));
+    if (req.user.role === 'member') {
+      const me = req.user.username;
+      tasks = tasks.filter(t => !t.assignees.length || t.assignees.includes(me));
+    }
     res.json({ tasks, total: tasks.length });
   } catch (err) {
     console.error('[/tasks]', err.message);
@@ -214,7 +219,7 @@ app.post('/tasks', auth.requireAdmin, async (req, res) => {
     };
     res.status(201).json({ task });
 
-    // Telegram: new task notification (fire-and-forget)
+    // Team task created → group chat only
     const assigneeNames = req.body.assigneeNames || [];
     const tags = assigneeNames.length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
     const dueFmt = dueDate || 'No date set';
@@ -227,7 +232,8 @@ app.post('/tasks', auth.requireAdmin, async (req, res) => {
       `Due: ${dueFmt}\n` +
       `Priority: ${prioFmt}\n` +
       `Category: ${catFmt}\n` +
-      `Status: To do`
+      `Status: To do`,
+      process.env.TELEGRAM_CHAT_ID
     ).catch(err => console.error('[telegram] new task:', err.message));
   } catch (err) {
     console.error('[POST /tasks]', err.message);
@@ -322,7 +328,8 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
     if (changes.length > 0) {
       telegram.sendMessage(
         `✏️ *Task updated: ${taskName}*\n` +
-        `Changes: ${changes.join(' · ')}`
+        `Changes: ${changes.join(' · ')}`,
+        process.env.TELEGRAM_CHAT_ID
       ).catch(err => console.error('[telegram] task update:', err.message));
     }
 
@@ -332,7 +339,8 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
       const due  = body.dueDate || prev.dueDate || 'No date set';
       telegram.sendMessage(
         `👤 *${taskName}* has been assigned to ${tags}\n` +
-        `Due: ${due}`
+        `Due: ${due}`,
+        process.env.TELEGRAM_CHAT_ID
       ).catch(err => console.error('[telegram] task assigned:', err.message));
     }
   } catch (err) {
@@ -359,13 +367,14 @@ app.post('/reminders', async (req, res) => {
     const reminder = await reminders.get(taskId);
     res.json({ ok: true, reminder });
 
-    // Telegram: reminder set notification (fire-and-forget)
+    // Team reminder set → group chat only
     const tags  = (assigneeNames || []).length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
     const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
     telegram.sendMessage(
       `⏰ *Reminder set for: ${taskName || taskId}*\n` +
       `Assigned to: ${tags}\n` +
-      `Reminding every: ${label}`
+      `Reminding every: ${label}`,
+      process.env.TELEGRAM_CHAT_ID
     ).catch(err => console.error('[telegram] reminder set:', err.message));
   } catch (err) {
     console.error('[POST /reminders]', err.message);
@@ -449,8 +458,14 @@ app.get('/team', (req, res) => {
 
 // ── Archive endpoints ────────────────────────────────────────────────────────
 
-app.get('/archive', (req, res) => {
-  res.json({ tasks: archive.getAll() });
+// Admin → all completed tasks.  Member → only tasks they were assigned to.
+app.get('/archive', auth.requireAuth, (req, res) => {
+  let tasks = archive.getAll();
+  if (req.user.role === 'member') {
+    const me = req.user.username;
+    tasks = tasks.filter(t => !t.assignee || t.assignee === me);
+  }
+  res.json({ tasks });
 });
 
 app.post('/archive/:id', async (req, res) => {
