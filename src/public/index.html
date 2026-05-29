@@ -253,12 +253,9 @@
     .theme-toggle-btn:hover { background: var(--tab-active); color: var(--text); }
 
     .sidebar-bottom {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 4px 0;
-      border-top: 1px solid var(--border);
       margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
 
     .ws-info { display: flex; align-items: center; gap: 8px; }
@@ -1143,22 +1140,46 @@
 
     /* ── Sidebar user footer ────────────────────────────────────── */
     .sidebar-user {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 8px; border-radius: 10px; margin-bottom: 6px;
-      background: var(--sidebar-user-bg);
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 4px 12px;
     }
     .sidebar-user-info { flex: 1; min-width: 0; }
-    .sidebar-user-name { font-size: 13px; font-weight: 600; color: var(--text); }
-    .sidebar-user-role { font-size: 11px; color: var(--muted); }
-    .sidebar-user-actions {
-      display: flex; gap: 4px;
+    .sidebar-user-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-user-role { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    /* Live-data dot stays small, tucked next to avatar */
+    .sidebar-dot-wrap { display: flex; align-items: center; }
+
+    .sidebar-footer-btns { display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; }
+
+    .sidebar-footer-btn {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; height: 40px; min-height: 44px;
+      padding: 0 12px; border-radius: 10px; border: none;
+      font-family: var(--font); font-size: 13.5px; font-weight: 500;
+      cursor: pointer; transition: background 0.12s; text-align: left;
     }
-    .sidebar-action-btn {
-      font-size: 11px; color: var(--muted); background: none; border: none;
-      cursor: pointer; padding: 4px 6px; border-radius: 6px; font-family: var(--font);
-      transition: background 0.1s, color 0.1s;
+    .sidebar-footer-btn svg { flex-shrink: 0; opacity: 0.85; }
+
+    /* Change PIN */
+    .sfb-pin {
+      background: var(--sidebar-user-bg);
+      color: var(--text);
     }
-    .sidebar-action-btn:hover { background: var(--sidebar-action-hover); color: var(--text); }
+    .sfb-pin:hover { background: var(--tab-active); }
+
+    /* Logout */
+    .sfb-logout {
+      background: rgba(255,59,48,0.12);
+      color: #ff3b30;
+    }
+    .sfb-logout:hover { background: rgba(255,59,48,0.22); }
+    .sfb-logout svg { opacity: 1; }
+
+    /* Light mode overrides */
+    body.light .sfb-pin    { background: #f0f0f0; color: #1d1d1f; }
+    body.light .sfb-pin:hover { background: #e5e5e5; }
+    body.light .sfb-logout { background: rgba(255,59,48,0.10); }
+    body.light .sfb-logout:hover { background: rgba(255,59,48,0.20); }
 
     /* ── PIN change modal ───────────────────────────────────────── */
     .modal-overlay {
@@ -1543,7 +1564,6 @@
     <div class="nav" id="sidebarNav"></div>
     <div class="sidebar-bottom">
       <div id="sidebarUser"></div>
-      <div class="refresh-dot" id="refreshDot" title="Live data"></div>
     </div>
   </nav>
 
@@ -1691,17 +1711,36 @@
   function renderSidebarUser() {
     const u = state.user;
     if (!u) { document.getElementById('sidebarUser').innerHTML = ''; return; }
+
+    const LOCK_ICON = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="7" width="9" height="7" rx="1.5"/>
+      <path d="M5 7V5a2.5 2.5 0 0 1 5 0v2"/>
+    </svg>`;
+
+    const LOGOUT_ICON = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 10.5l3-3-3-3"/>
+      <path d="M12.5 7.5H5.5"/>
+      <path d="M5.5 12.5H3a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h2.5"/>
+    </svg>`;
+
     document.getElementById('sidebarUser').innerHTML = `
       <div class="sidebar-user">
-        ${avatarHtml(u.username, 30)}
+        ${avatarHtml(u.username, 36)}
         <div class="sidebar-user-info">
           <div class="sidebar-user-name">${esc(u.displayName || u.username)}</div>
           <div class="sidebar-user-role">${u.role === 'admin' ? 'Admin' : 'Member'}</div>
         </div>
-        <div class="sidebar-user-actions">
-          <button class="sidebar-action-btn" onclick="openPinModal()" title="Change PIN">🔑</button>
-          <button class="sidebar-action-btn" onclick="logout()" title="Logout">↩</button>
+        <div class="sidebar-dot-wrap">
+          <div class="refresh-dot" id="refreshDot" title="Live data"></div>
         </div>
+      </div>
+      <div class="sidebar-footer-btns">
+        <button class="sidebar-footer-btn sfb-pin" onclick="openPinModal()">
+          ${LOCK_ICON} Change PIN
+        </button>
+        <button class="sidebar-footer-btn sfb-logout" onclick="logout()">
+          ${LOGOUT_ICON} Log out
+        </button>
       </div>`;
   }
 
