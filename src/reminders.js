@@ -135,23 +135,27 @@ async function getAll() {
 
 async function firePersonal(r) {
   try {
+    // Resolve DM chat ID — NEVER fall back to group chat
+    const chatId = await personal.getChatId(r.telegramUsername);
+    if (!chatId) {
+      console.warn(`[reminders] No personal chat ID for ${r.username} (@${r.telegramUsername}) — skipping`);
+      return;
+    }
+
     const task = await personal.getTask(r.username, r.taskId);
 
     if (!task || task.status === 'done') {
       await cancelPersonal(r.username, r.taskId);
       if (task) {
-        const chatId = await personal.getChatId(r.telegramUsername);
         await telegram.sendMessage(
           `✅ Personal reminder cancelled — "${r.taskName}" is complete`,
-          chatId || process.env.TELEGRAM_CHAT_ID
+          chatId
         );
       }
       return;
     }
 
-    const chatId = await personal.getChatId(r.telegramUsername);
-    const dest   = chatId || process.env.TELEGRAM_CHAT_ID;
-    const today  = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
 
     if (task.dueDate && task.dueDate < today) {
       const days = Math.floor((Date.now() - new Date(task.dueDate).getTime()) / 86400000);
@@ -159,7 +163,7 @@ async function firePersonal(r) {
         `🚨 *OVERDUE (Personal): ${task.name}*\n` +
         `Was due: ${task.dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
         `Please complete this task.`,
-        dest
+        chatId
       );
     } else {
       await telegram.sendMessage(
@@ -167,7 +171,7 @@ async function firePersonal(r) {
         `Due: ${task.dueDate || 'No due date'}\n` +
         `Priority: ${task.priority || 'Not set'}\n` +
         `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`,
-        dest
+        chatId
       );
     }
   } catch (err) {
