@@ -17,6 +17,16 @@ const auth = require('./auth');
 const personal = require('./personal');
 const redis = require('./redis-client');
 
+// ── Name matching ─────────────────────────────────────────────────────────────
+// Bidirectional case-insensitive fuzzy match for member names.
+// Handles "N1ka", "Harihar Singh", partial Notion display names, etc.
+function namesMatch(a, b) {
+  if (!a || !b) return false;
+  a = String(a).toLowerCase().trim();
+  b = String(b).toLowerCase().trim();
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 // ── Redis helpers for comments + history ─────────────────────────────────────
 
 function parseR(raw) {
@@ -162,7 +172,7 @@ async function dmMember(memberName, text) {
   if (!member) return;
   const chatId = await personal.getChatId(member.telegram);
   if (!chatId) return;
-  return telegram.sendMessage(text, chatId).catch(err =>
+  return telegram.queueNotification(text, chatId).catch(err =>
     console.warn('[personal DM]', memberName, err.message)
   );
 }
@@ -294,7 +304,7 @@ app.post('/telegram-webhook', async (req, res) => {
     if (text !== '/register') return;
 
     if (!tgUser) {
-      await telegram.sendMessage(
+      await telegram.queueNotification(
         '❌ No Telegram username found on your account. Set one in Telegram Settings → Username, then try again.',
         chatId
       );
@@ -306,7 +316,7 @@ app.post('/telegram-webhook', async (req, res) => {
     await personal.setChatId(tgUser, chatId);
 
     const name = member ? member.name : `@${tgUser}`;
-    await telegram.sendMessage(
+    await telegram.queueNotification(
       `✅ Registered! You'll now receive personal task reminders as DMs.`,
       chatId
     );
@@ -348,7 +358,7 @@ app.post('/tasks/:id/comments', auth.requireAuth, async (req, res) => {
 
     // Telegram group notification
     const author = req.user.displayName || req.user.username;
-    telegram.sendMessage(
+    telegram.queueNotification(
       `💬 *${author}* commented on *${taskName || 'a task'}*:\n${text.trim().slice(0, 200)}`,
       process.env.TELEGRAM_CHAT_ID
     ).catch(() => {});
@@ -406,8 +416,8 @@ app.get('/tasks', auth.requireAuth, async (req, res) => {
     }));
     if (req.user.role === 'member') {
       const me = req.user.username;
-      // Members see ONLY tasks explicitly assigned to them — no unassigned tasks
-      tasks = tasks.filter(t => (t.assignees || []).includes(me));
+      // Members see ONLY tasks where their name matches an assignee (case-insensitive)
+      tasks = tasks.filter(t => (t.assignees || []).some(a => namesMatch(a, me)));
     }
     res.json({ tasks, total: tasks.length });
   } catch (err) {
@@ -416,14 +426,33 @@ app.get('/tasks', auth.requireAuth, async (req, res) => {
   }
 });
 
-// Creates a new task in the Notion Tasks database
-app.post('/tasks', auth.requireAdmin, async (req, res) => {
-  const { name, assigneeId, assigneeIds, dueDate, status, priority, category } = req.body;
+// Creates a new task in the Notion Tasks database — all members can create tasks
+app.post('/tasks', auth.requireAuth, async (req, res) => {
+  const { name, assigneeId, dueDate, status, priority, category } = req.body;
   if (!name?.trim()) {
     return res.status(400).json({ error: 'Task name is required' });
   }
   try {
-    const page = await notion.createTask({ name: name.trim(), assigneeId, assigneeIds, dueDate, status, priority, category });
+    let assigneeIds   = req.body.assigneeIds   || (assigneeId ? [assigneeId] : []);
+    let assigneeNames = req.body.assigneeNames || [];
+
+    // Non-admin members are auto-assigned as creator (ensures they see the task)
+    if (req.user.role !== 'admin') {
+      const alreadyIn = assigneeNames.some(n => namesMatch(n, req.user.username));
+      if (!alreadyIn) {
+        // Look up their Notion user ID
+        try {
+          const wsUsers   = await notion.getWorkspaceUsers();
+          const notionUser = wsUsers.find(u => namesMatch(u.name, req.user.username));
+          if (notionUser && !assigneeIds.includes(notionUser.id)) {
+            assigneeIds   = [notionUser.id, ...assigneeIds];
+            assigneeNames = [req.user.username, ...assigneeNames];
+          }
+        } catch (_) {}
+      }
+    }
+
+    const page = await notion.createTask({ name: name.trim(), assigneeIds, dueDate, status, priority, category });
     const task = {
       id: page.id,
       name: notion.getTaskName(page),
@@ -445,7 +474,7 @@ app.post('/tasks', auth.requireAdmin, async (req, res) => {
     const dueFmt = dueDate || 'No date set';
     const prioFmt = priority ? priority.replace(/^[^\w]+/, '').trim() : 'Not set';
     const catFmt  = category || 'Not set';
-    telegram.sendMessage(
+    telegram.queueNotification(
       `📌 *New task created*\n\n` +
       `Task: ${name.trim()}\n` +
       `Assigned to: ${tags}\n` +
@@ -546,7 +575,7 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
       changes.push(`Assignees: ${assigneeNames.map(n => team.tag(n)).join(' ')}`);
 
     if (changes.length > 0) {
-      telegram.sendMessage(
+      telegram.queueNotification(
         `✏️ *Task updated: ${taskName}*\n` +
         `Changes: ${changes.join(' · ')}`,
         process.env.TELEGRAM_CHAT_ID
@@ -557,7 +586,7 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
     if (prevAssignees.length === 0 && assigneeNames.length > 0) {
       const tags = assigneeNames.map(n => team.tag(n)).join(' ');
       const due  = body.dueDate || prev.dueDate || 'No date set';
-      telegram.sendMessage(
+      telegram.queueNotification(
         `👤 *${taskName}* has been assigned to ${tags}\n` +
         `Due: ${due}`,
         process.env.TELEGRAM_CHAT_ID
@@ -605,7 +634,7 @@ app.post('/reminders', async (req, res) => {
     // Team reminder set → group chat only
     const tags  = (assigneeNames || []).length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
     const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
-    telegram.sendMessage(
+    telegram.queueNotification(
       `⏰ *Reminder set for: ${taskName || taskId}*\n` +
       `Assigned to: ${tags}\n` +
       `Reminding every: ${label}`,
@@ -698,7 +727,7 @@ app.get('/archive', auth.requireAuth, (req, res) => {
   let tasks = archive.getAll();
   if (req.user.role === 'member') {
     const me = req.user.username;
-    tasks = tasks.filter(t => t.assignee === me);
+    tasks = tasks.filter(t => namesMatch(t.assignee, me));
   }
   res.json({ tasks });
 });

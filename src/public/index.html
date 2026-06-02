@@ -1640,6 +1640,15 @@
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
 
+  // ── Name matching ──────────────────────────────────────────────────────────
+  // Bidirectional, case-insensitive. Handles "N1ka", "Harihar Singh", etc.
+  function namesMatch(a, b) {
+    if (!a || !b) return false;
+    a = String(a).toLowerCase().trim();
+    b = String(b).toLowerCase().trim();
+    return a === b || a.includes(b) || b.includes(a);
+  }
+
   // ── Auth utilities ─────────────────────────────────────────────────────────
   const TOKEN_KEY = 'taskr_token';
 
@@ -2398,7 +2407,7 @@
 
     if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
-      if (state.user?.role === 'admin' || true) openCreatePanel();
+      openCreatePanel();
     }
     if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
       e.preventDefault();
@@ -2677,10 +2686,10 @@
       ]);
       if (tr?.tasks) {
         const all = tr.tasks.filter(t => t.status !== 'Done');
-        // Members see ONLY tasks explicitly assigned to them
+        // Members see ONLY tasks where their name matches an assignee (case-insensitive)
         if (state.user?.role === 'member') {
           const me = state.user.username;
-          state.tasks = all.filter(t => (t.assignees || []).includes(me));
+          state.tasks = all.filter(t => (t.assignees || []).some(a => namesMatch(a, me)));
         } else {
           state.tasks = all;
         }
@@ -4398,7 +4407,7 @@
   function renderMyTasks() {
     const me    = state.user?.username || '';
     const today = todayStr();
-    const tasks = state.tasks.filter(t => (t.assignees || []).includes(me));
+    const tasks = state.tasks.filter(t => (t.assignees || []).some(a => namesMatch(a, me)));
 
     return `
       <div class="page-header">
