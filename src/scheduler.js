@@ -80,7 +80,7 @@ async function sendDailyDigest() {
   });
 
   if (tasks.length === 0) {
-    await telegram.sendMessage('📋 *Tasks due today*\n\nNo tasks due today! ✨');
+    await telegram.queueNotification('📋 *Tasks due today*\n\nNo tasks due today! ✨');
     return;
   }
 
@@ -91,7 +91,7 @@ async function sendDailyDigest() {
     assignees: notion.getAssigneeNames(task),
   }));
 
-  await telegram.sendMessage(buildDailyDigest(digestTasks));
+  await telegram.queueNotification(buildDailyDigest(digestTasks));
 }
 
 async function sendOverdueAlert() {
@@ -106,7 +106,7 @@ async function sendOverdueAlert() {
   });
 
   if (tasks.length === 0) {
-    await telegram.sendMessage('⚠️ *Overdue tasks*\n\nNo overdue tasks! ✅');
+    await telegram.queueNotification('⚠️ *Overdue tasks*\n\nNo overdue tasks! ✅');
     return;
   }
 
@@ -122,7 +122,7 @@ async function sendOverdueAlert() {
     };
   });
 
-  await telegram.sendMessage(buildOverdueAlert(overdueItems));
+  await telegram.queueNotification(buildOverdueAlert(overdueItems));
 }
 
 async function sendWeeklyReport() {
@@ -130,11 +130,11 @@ async function sendWeeklyReport() {
   const { members, topPerformer } = await tally.computePerformance();
 
   if (members.length === 0) {
-    await telegram.sendMessage('📊 *Weekly performance report*\n\nNo performance data available yet.');
+    await telegram.queueNotification('📊 *Weekly performance report*\n\nNo performance data available yet.');
     return;
   }
 
-  await telegram.sendMessage(buildWeeklyReport(members, topPerformer));
+  await telegram.queueNotification(buildWeeklyReport(members, topPerformer));
 }
 
 // ── Recurring task generation ────────────────────────────────────────────────
@@ -176,7 +176,7 @@ async function generateRecurringTasks() {
 
       const tags = (rt.assignees || []).map(n => team.tag(n)).join(' ') || 'Unassigned';
       const freqLabel = FREQ_LABELS[rt.frequency] || (rt.customDays ? `Every ${rt.customDays} days` : rt.frequency);
-      await telegram.sendMessage(
+      await telegram.queueNotification(
         `🔄 *Recurring task created*\n` +
         `${rt.name}\n` +
         `Assigned to: ${tags}\n` +
@@ -217,7 +217,7 @@ async function sendDayBeforeReminders() {
     const tags      = assignees.length ? assignees.map(n => team.tag(n)).join(' ') : 'Unassigned';
 
     // Group chat notification
-    telegram.sendMessage(
+    telegram.queueNotification(
       `📅 *Due tomorrow: ${taskName}*\n` +
       `Assigned to: ${tags}\n` +
       `Due: ${dueDate}\n` +
@@ -231,7 +231,7 @@ async function sendDayBeforeReminders() {
       if (!member) continue;
       const chatId = await require('./personal').getChatId(member.telegram);
       if (!chatId) continue;
-      telegram.sendMessage(
+      telegram.queueNotification(
         `📅 *Heads up — ${taskName} is due tomorrow.*\n` +
         `Make sure it's done by end of day.`,
         chatId
@@ -244,10 +244,15 @@ async function sendDayBeforeReminders() {
 
 const auth = require('./auth');
 
+const ADMIN_TZ_DEFAULT = 'America/Los_Angeles';
+
 async function getAdminTz() {
-  // Admin is Harihar Singh; fall back to UTC if not set
-  try { return await auth.getTimezone('Harihar Singh'); }
-  catch { return 'UTC'; }
+  try {
+    const tz = await auth.getTimezone('Harihar Singh');
+    return tz || ADMIN_TZ_DEFAULT;
+  } catch {
+    return ADMIN_TZ_DEFAULT;
+  }
 }
 
 async function startScheduler() {

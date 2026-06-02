@@ -836,8 +836,11 @@ async function start() {
     console.log(`[server] Taskr listening on http://localhost:${port}`);
 
     // Register Telegram webhook so /register DMs are delivered here
-    const domain = process.env.RAILWAY_PUBLIC_DOMAIN;
-    if (domain) {
+    const rawDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+    if (rawDomain) {
+      // Strip any accidental protocol prefix or trailing slash so we always
+      // produce exactly: https://<host>/telegram-webhook
+      const domain     = rawDomain.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
       const webhookUrl = `https://${domain}/telegram-webhook`;
       try {
         const result = await telegram.setWebhook(webhookUrl);
@@ -847,6 +850,7 @@ async function start() {
           console.warn('[telegram] setWebhook failed:', result.description);
         }
       } catch (err) {
+        // Never crash on webhook registration failure — the app still works without it
         console.error('[telegram] setWebhook error:', err.message);
       }
     } else {
