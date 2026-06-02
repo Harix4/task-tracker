@@ -468,8 +468,7 @@ app.post('/tasks', auth.requireAuth, async (req, res) => {
     // Track creation in history
     addTaskHistory(task.id, { action: 'task_created', by: req.user.username }).catch(() => {});
 
-    // Team task created → group chat only
-    const assigneeNames = req.body.assigneeNames || [];
+    // Team task created → group chat only (assigneeNames already set above)
     const tags = assigneeNames.length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
     const dueFmt = dueDate || 'No date set';
     const prioFmt = priority ? priority.replace(/^[^\w]+/, '').trim() : 'Not set';
