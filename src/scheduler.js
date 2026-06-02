@@ -244,15 +244,12 @@ async function sendDayBeforeReminders() {
 
 const auth = require('./auth');
 
-const ADMIN_TZ_DEFAULT = 'America/Los_Angeles';
+// Admin timezone is hardcoded — the Redis-stored tz (set by browser login) can
+// differ from the intended scheduler timezone, so we pin it explicitly.
+const ADMIN_TZ = 'America/Los_Angeles';
 
 async function getAdminTz() {
-  try {
-    const tz = await auth.getTimezone('Harihar Singh');
-    return tz || ADMIN_TZ_DEFAULT;
-  } catch {
-    return ADMIN_TZ_DEFAULT;
-  }
+  return ADMIN_TZ;
 }
 
 async function startScheduler() {
