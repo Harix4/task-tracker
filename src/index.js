@@ -815,7 +815,7 @@ app.get('/performance', async (req, res) => {
 // ── Startup ──────────────────────────────────────────────────────────────────
 
 async function start() {
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 8080;
 
   // Auto-initialise PINs on first boot
   try {
@@ -832,8 +832,8 @@ async function start() {
   await reminders.load();
   await startScheduler();
 
-  app.listen(port, async () => {
-    console.log(`[server] Taskr listening on http://localhost:${port}`);
+  app.listen(port, '0.0.0.0', async () => {
+    console.log(`[server] Taskr listening on port ${port}`);
 
     // Register Telegram webhook so /register DMs are delivered here
     const rawDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
