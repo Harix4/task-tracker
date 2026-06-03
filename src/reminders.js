@@ -5,6 +5,15 @@ const team     = require('./team');
 const personal = require('./personal');
 const auth     = require('./auth');
 
+// Check a user's notification preference (defaults to true / on)
+async function notifPref(username, type) {
+  try {
+    const raw   = await redis.get(`notif:prefs:${username}`);
+    const prefs = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : {});
+    return prefs[type] !== false;
+  } catch { return true; }
+}
+
 // Format current time in a given IANA timezone, e.g. "9:05 AM"
 function localTimeStr(tz) {
   try {
@@ -95,7 +104,7 @@ async function fireTeam(r) {
     // Done → cancel + notify group
     if (status === 'Done') {
       await cancel(r.taskId);
-      await telegram.sendMessage(`✅ Reminder cancelled — ${taskName} is marked complete`, GROUP);
+      await telegram.queueNotification(`✅ Reminder cancelled — ${taskName} is marked complete`, GROUP);
       return;
     }
 
@@ -104,7 +113,7 @@ async function fireTeam(r) {
     if (dueDate && dueDate < today) {
       const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
       const days = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
-      await telegram.sendMessage(
+      await telegram.queueNotification(
         `🚨 *OVERDUE: ${taskName}*\n` +
         `Assigned to: ${tags}\n` +
         `Was due: ${dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
@@ -122,7 +131,7 @@ async function fireTeam(r) {
       if (tz && tz !== 'UTC') tzLines.push(`${name}: ${localTimeStr(tz)}`);
     }
     const tzNote = tzLines.length ? `\nLocal times: ${tzLines.join(' · ')}` : '';
-    await telegram.sendMessage(
+    await telegram.queueNotification(
       buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }) + tzNote,
       GROUP
     );
@@ -179,7 +188,7 @@ async function firePersonal(r) {
     if (!task || task.status === 'done') {
       await cancelPersonal(r.username, r.taskId);
       if (task) {
-        await telegram.sendMessage(
+        await telegram.queueNotification(
           `✅ Personal reminder cancelled — "${r.taskName}" is complete`,
           chatId
         );
@@ -216,17 +225,21 @@ async function firePersonal(r) {
       );
     }
 
-    // Send to task owner
-    await telegram.sendMessage(buildMsg(tz), chatId);
+    // Send to task owner (respect their notification preferences)
+    const prefType = (task.dueDate && task.dueDate < today) ? 'overdue' : 'dayBefore';
+    if (await notifPref(r.username, prefType)) {
+      await telegram.queueNotification(buildMsg(tz), chatId);
+    }
 
-    // Send to collaborators
+    // Send to collaborators (respect their notification preferences)
     for (const collab of (task.collaborators || [])) {
       const collabMember = team.lookup(collab);
       if (!collabMember) continue;
+      if (!(await notifPref(collab, prefType))) continue;
       const collabChatId = await personal.getChatId(collabMember.telegram);
       if (!collabChatId) continue;
       const collabTz = await auth.getTimezone(collab);
-      await telegram.sendMessage(buildMsg(collabTz), collabChatId).catch(err =>
+      await telegram.queueNotification(buildMsg(collabTz), collabChatId).catch(err =>
         console.warn('[reminders] collab DM error:', err.message)
       );
     }

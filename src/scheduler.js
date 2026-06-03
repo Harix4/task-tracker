@@ -225,11 +225,19 @@ async function sendDayBeforeReminders() {
       GROUP
     ).catch(console.error);
 
-    // Personal DM to each assignee
+    // Personal DM to each assignee (respect dayBefore preference)
+    const personalModule = require('./personal');
+    const redisModule    = require('./redis-client');
     for (const assignee of assignees) {
       const member = team.lookup(assignee);
       if (!member) continue;
-      const chatId = await require('./personal').getChatId(member.telegram);
+      // Check pref
+      try {
+        const raw   = await redisModule.get(`notif:prefs:${member.name}`);
+        const prefs = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : {});
+        if (prefs.dayBefore === false) continue;
+      } catch (_) {}
+      const chatId = await personalModule.getChatId(member.telegram);
       if (!chatId) continue;
       telegram.queueNotification(
         `📅 *Heads up — ${taskName} is due tomorrow.*\n` +

@@ -1448,6 +1448,72 @@
     }
     .setup-tg-link:hover { text-decoration: underline; }
 
+    /* ── Settings page ──────────────────────────────────────────── */
+    .settings-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .settings-section-title {
+      font-size: 11px; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--muted);
+      padding: 13px 20px; border-bottom: 1px solid var(--border);
+    }
+    .settings-section-body { padding: 18px 20px; }
+
+    /* Toggle switch */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 0; border-bottom: 1px solid var(--border); gap: 16px;
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-info { flex: 1; }
+    .toggle-label-text { font-size: 13.5px; font-weight: 500; color: var(--text); }
+    .toggle-label-sub  { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .toggle-switch {
+      position: relative; display: inline-block;
+      width: 44px; height: 26px; flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--border); border-radius: 26px;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      height: 20px; width: 20px; left: 3px; bottom: 3px;
+      background: #fff; border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--green); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* Telegram status dot */
+    .tg-status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .tg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .tg-dot-ok  { background: var(--green); }
+    .tg-dot-off { background: var(--red); }
+    .tg-status-label { font-size: 14px; font-weight: 500; color: var(--text); }
+
+    /* Person pill with timezone time */
+    .pp-tz { font-size: 10.5px; color: var(--muted); margin-left: 4px; white-space: nowrap; }
+
+    /* Dashboard no-timezone banner */
+    .tz-banner {
+      background: rgba(0,113,227,0.08); border: 1px solid rgba(0,113,227,0.2);
+      border-radius: 10px; padding: 11px 16px; margin-bottom: 18px;
+      display: flex; align-items: center; gap: 12px;
+      font-size: 13.5px; color: var(--text);
+    }
+    .tz-banner-link {
+      margin-left: auto; font-size: 13px; font-weight: 600;
+      color: var(--blue); cursor: pointer; white-space: nowrap;
+      background: none; border: none; font-family: var(--font);
+    }
+    .tz-banner-link:hover { text-decoration: underline; }
+
     /* ── Comments ───────────────────────────────────────────────── */
     .comments-list {
       display: flex; flex-direction: column; gap: 12px;
@@ -1636,6 +1702,8 @@
     user: null,          // { username, role, telegram, displayName, initials }
     personalTasks: [],
     selectedTasks: new Set(),
+    teamTimezones: {},  // { username: { tz, localTime, displayName } }
+    notifPrefs:    {},  // { digest, overdue, dayBefore, assignment, comments }
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -1685,6 +1753,7 @@
     performance: `<svg class="nav-icon" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="10" rx="1"/><rect x="12" y="1" width="3" height="14" rx="1"/></svg>`,
     resources:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/><path d="M10 1.5v3.5h3.5"/><path d="M6.5 7.5h3M6.5 10h4.5"/></svg>`,
     completed:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>`,
+    settings:    `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/></svg>`,
   };
 
   const NAV_ITEMS = {
@@ -1696,6 +1765,7 @@
       { page: 'resources',   label: 'Resources' },
       { page: 'performance', label: 'Performance' },
       { page: 'completed',   label: 'Completed' },
+      { page: 'settings',    label: 'Settings' },
     ],
     member: [
       { page: 'dashboard', label: 'Dashboard' },
@@ -1704,6 +1774,7 @@
       { page: 'personal',  label: 'Personal' },
       { page: 'resources', label: 'Resources' },
       { page: 'completed', label: 'Completed' },
+      { page: 'settings',  label: 'Settings' },
     ],
   };
 
@@ -2590,17 +2661,20 @@
   }
 
   // People picker HTML (multi-select pills)
-  function peoplePicker(selectedNames = [], pickerId = 'pp', taskId = null) {
+  function peoplePicker(selectedNames = [], pickerId = 'pp', taskId = null, showTz = false) {
     const taskArg = taskId ? `,'${esc(taskId)}'` : '';
     return `<div class="people-picker" id="${esc(pickerId)}">
       ${TEAM.map(name => {
-        const sel = selectedNames.includes(name);
-        const c = avatarColor(name);
+        const sel  = selectedNames.includes(name);
+        const c    = avatarColor(name);
+        const tzInfo = showTz ? state.teamTimezones[name] : null;
+        const tzTag  = tzInfo?.localTime
+          ? `<span class="pp-tz">${esc(tzInfo.localTime)}</span>` : '';
         return `<button type="button" class="person-pill${sel ? ' pp-selected' : ''}"
           onclick="togglePersonPill('${esc(pickerId)}','${esc(name)}'${taskArg})"
           data-name="${esc(name)}">
           <span class="pp-avatar" style="background:${c}">${esc(initials(name))}</span>
-          ${esc(name)}${sel ? '<span class="pp-check">✓</span>' : ''}
+          ${esc(name)}${tzTag}${sel ? '<span class="pp-check">✓</span>' : ''}
         </button>`;
       }).join('')}
     </div>`;
@@ -2748,12 +2822,18 @@
     document.getElementById('overlay').classList.add('show');
     document.getElementById('panel').classList.add('open');
 
-    const [ur, rr, cr, hr] = await Promise.all([
+    const [ur, rr, cr, hr, tzr] = await Promise.all([
       authFetch('/users').then(r => r.ok ? r.json() : null).catch(() => null),
       authFetch('/reminders').then(r => r.ok ? r.json() : null).catch(() => null),
       authFetch(`/tasks/${taskId}/comments`).then(r => r.ok ? r.json() : null).catch(() => null),
       authFetch(`/tasks/${taskId}/history`).then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch('/team/timezones').then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
+    // Cache team timezones for the assignee picker
+    if (tzr?.members) {
+      state.teamTimezones = {};
+      tzr.members.forEach(m => { state.teamTimezones[m.username] = m; });
+    }
     if (panelTaskId !== taskId) return; // panel was reopened for a different task
     const users = ur?.users || [];
     state.workspaceUsers = users;
@@ -2784,7 +2864,7 @@
     const metaAssignees = (state.tasksMeta[t.id]?.assignees?.length)
       ? state.tasksMeta[t.id].assignees
       : (t.assignees || []);
-    const assigneeField = peoplePicker(metaAssignees, 'panel-pp', t.id);
+    const assigneeField = peoplePicker(metaAssignees, 'panel-pp', t.id, true);
 
     const meta = state.tasksMeta[t.id] || { notes: '', sop: '', sopLink: '', resources: [] };
     const hasNotes = !!(meta.notes?.trim());
@@ -3082,6 +3162,11 @@
 
     return `
       <div class="page-title">Dashboard</div>
+      ${!localStorage.getItem(TZ_KEY) ? `
+        <div class="tz-banner">
+          ⚙️ Set your timezone for accurate reminders
+          <button class="tz-banner-link" onclick="navigate('settings')">Go to Settings →</button>
+        </div>` : ''}
       <div class="metrics-grid">
         <div class="metric-card">
           <div class="metric-label">Due Today</div>
@@ -4674,7 +4759,182 @@
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Settings page ─────────────────────────────────────────────────────────
+  let _settingsClock = null;
+
+  async function renderSettings() {
+    const main = document.getElementById('main');
+
+    const tzOptions = TIMEZONE_OPTIONS.map(g =>
+      `<optgroup label="${esc(g.region)}">
+        ${g.zones.map(z =>
+          `<option value="${esc(z.tz)}"${getUserTz()===z.tz?' selected':''}>${esc(z.label)}</option>`
+        ).join('')}
+       </optgroup>`
+    ).join('');
+
+    main.innerHTML = `
+      <div class="page-title">Settings</div>
+
+      <!-- 1. Timezone -->
+      <div class="settings-section">
+        <div class="settings-section-title">My Timezone</div>
+        <div class="settings-section-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+            Used for reminders, due date alerts, and the time shown in notifications.
+          </p>
+          <button class="setup-detect-btn" style="max-width:260px" onclick="settingsDetectTz()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="5.5"/><path d="M7 1.5v2M7 10.5v2M1.5 7h2M10.5 7h2"/><circle cx="7" cy="7" r="1.8" fill="currentColor" stroke="none"/></svg>
+            Detect automatically
+          </button>
+          <select class="setup-tz-select" id="settingsTzSel" style="max-width:340px;margin-bottom:4px"
+            onchange="settingsTzChanged(this.value)">${tzOptions}</select>
+          <div class="setup-live-time" id="settingsClock" style="font-size:28px;margin:10px 0 2px">—</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px" id="settingsTzLabel"></div>
+          <button class="panel-save-btn" style="width:auto;padding:0 28px;height:38px" onclick="saveSettingsTz()">
+            Save timezone
+          </button>
+          <span id="settingsTzSaved" style="font-size:12px;color:var(--green);margin-left:10px;display:none">✓ Saved</span>
+        </div>
+      </div>
+
+      <!-- 2. Notification preferences -->
+      <div class="settings-section">
+        <div class="settings-section-title">Notification Preferences</div>
+        <div class="settings-section-body" id="notifPrefsContainer">
+          <div style="font-size:13px;color:var(--muted)">Loading…</div>
+        </div>
+      </div>
+
+      <!-- 3. Telegram status -->
+      <div class="settings-section">
+        <div class="settings-section-title">Telegram DMs</div>
+        <div class="settings-section-body" id="telegramStatusContainer">
+          <div style="font-size:13px;color:var(--muted)">Checking…</div>
+        </div>
+      </div>`;
+
+    // Start live clock
+    _settingsCurrentTz = getUserTz();
+    _startSettingsClock();
+
+    // Load prefs + telegram status in parallel
+    const [prefsRes, tgRes, botRes] = await Promise.all([
+      authFetch('/settings/notif-prefs').then(r => r.ok ? r.json() : null).catch(() => null),
+      authFetch('/settings/telegram-status').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/auth/bot').then(r => r.json()).catch(() => null),
+    ]);
+
+    // Render notification toggles
+    const prefs = prefsRes?.prefs || { digest: true, overdue: true, dayBefore: true, assignment: true, comments: true };
+    state.notifPrefs = prefs;
+    document.getElementById('notifPrefsContainer').innerHTML = `
+      ${[
+        { key: 'digest',     label: 'Daily digest',             sub: 'Summary of tasks due today sent at 9am' },
+        { key: 'overdue',    label: 'Overdue alerts',           sub: 'Alert when tasks are past their due date' },
+        { key: 'dayBefore',  label: 'Day-before reminders',     sub: 'Heads-up the day before a task is due' },
+        { key: 'assignment', label: 'Task assignment',          sub: 'DM when a task is shared with you' },
+        { key: 'comments',   label: 'Comment notifications',    sub: 'DM when someone comments on your task' },
+      ].map(({ key, label, sub }) => `
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label-text">${label}</div>
+            <div class="toggle-label-sub">${sub}</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="pref_${key}" ${prefs[key] !== false ? 'checked' : ''}
+              onchange="saveNotifPref('${key}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>`).join('')}`;
+
+    // Render Telegram status
+    const connected = tgRes?.connected;
+    const botName   = botRes?.username || '';
+    document.getElementById('telegramStatusContainer').innerHTML = connected
+      ? `<div class="tg-status-row">
+           <div class="tg-dot tg-dot-ok"></div>
+           <div class="tg-status-label">Connected — DMs enabled</div>
+         </div>
+         <p style="font-size:13px;color:var(--muted)">
+           You will receive personal reminders as Telegram DMs.
+         </p>`
+      : `<div class="tg-status-row">
+           <div class="tg-dot tg-dot-off"></div>
+           <div class="tg-status-label">Not connected</div>
+         </div>
+         <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+           Connect to receive task reminders as private DMs.
+         </p>
+         <div class="setup-tg-card">
+           <div class="setup-tg-num">1</div>
+           <div class="setup-tg-text">Open ${botName ? `<a class="setup-tg-link" href="https://t.me/${esc(botName)}" target="_blank">@${esc(botName)}</a>` : 'your Taskr bot'} on Telegram</div>
+         </div>
+         <div class="setup-tg-card">
+           <div class="setup-tg-num">2</div>
+           <div class="setup-tg-text">Send <strong>/register</strong></div>
+         </div>`;
+  }
+
+  let _settingsCurrentTz = '';
+
+  function _startSettingsClock() {
+    _updateSettingsClock();
+    _settingsClock = setInterval(_updateSettingsClock, 1000);
+  }
+
+  function _updateSettingsClock() {
+    const el = document.getElementById('settingsClock');
+    const lb = document.getElementById('settingsTzLabel');
+    const tz = _settingsCurrentTz || 'UTC';
+    if (!el) { clearInterval(_settingsClock); _settingsClock = null; return; }
+    try {
+      el.textContent = new Date().toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+      if (lb) lb.textContent = tz.replace(/_/g, ' ');
+    } catch { el.textContent = '—'; }
+  }
+
+  function settingsDetectTz() {
+    const tz  = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    _settingsCurrentTz = tz;
+    const sel = document.getElementById('settingsTzSel');
+    if (sel) sel.value = tz;
+    _updateSettingsClock();
+  }
+
+  function settingsTzChanged(val) {
+    _settingsCurrentTz = val;
+    _updateSettingsClock();
+  }
+
+  async function saveSettingsTz() {
+    const tz = _settingsCurrentTz || getUserTz();
+    try {
+      await authFetch('/auth/timezone', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: tz }),
+      });
+      localStorage.setItem(TZ_KEY, tz);
+      const saved = document.getElementById('settingsTzSaved');
+      if (saved) { saved.style.display = 'inline'; setTimeout(() => saved.style.display = 'none', 2500); }
+    } catch (err) { console.error('[settings] save tz:', err.message); }
+  }
+
+  async function saveNotifPref(key, val) {
+    state.notifPrefs[key] = val;
+    try {
+      await authFetch('/settings/notif-prefs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.notifPrefs),
+      });
+    } catch (err) { console.error('[settings] save pref:', err.message); }
+  }
+
   function render() {
+    // Stop settings clock when leaving settings page
+    if (state.page !== 'settings' && _settingsClock) {
+      clearInterval(_settingsClock); _settingsClock = null;
+    }
     const main = document.getElementById('main');
     switch (state.page) {
       case 'dashboard':   main.innerHTML = renderDashboard();   break;
@@ -4685,6 +4945,7 @@
       case 'resources':   main.innerHTML = renderResources();   break;
       case 'completed':   main.innerHTML = renderCompleted();   break;
       case 'recurring':   main.innerHTML = renderRecurring();   break;
+      case 'settings':    renderSettings();                     break;
     }
   }
 

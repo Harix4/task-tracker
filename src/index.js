@@ -166,10 +166,12 @@ app.post('/auth/pin', auth.requireAuth, async (req, res) => {
 
 // ── Personal task routes (auth required) ─────────────────────────────────────
 
-// Helper: send a DM to a named team member if they have a registered chat ID
-async function dmMember(memberName, text) {
+// Helper: send a DM to a named team member, optionally gated by a notif pref type
+async function dmMember(memberName, text, prefType = null) {
   const member = team.lookup(memberName);
   if (!member) return;
+  // Check notification preference before sending
+  if (prefType && !(await getUserNotifPref(member.name, prefType).catch(() => true))) return;
   const chatId = await personal.getChatId(member.telegram);
   if (!chatId) return;
   return telegram.queueNotification(text, chatId).catch(err =>
@@ -212,7 +214,8 @@ app.post('/personal/tasks', auth.requireAuth, async (req, res) => {
           `👥 *${creator} shared a task with you:*\n` +
           `${task.name}\n` +
           `Due: ${dueStr}\n` +
-          `You can view it in your Personal tab on Klone HQ.`
+          `You can view it in your Personal tab on Klone HQ.`,
+          'assignment'
         );
       }
     }
@@ -384,6 +387,72 @@ app.get('/tasks/:id/history', auth.requireAuth, async (req, res) => {
     const raw     = await redis.get(`task:history:${req.params.id}`);
     const history = parseR(raw) || [];
     res.json({ history });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Settings: notification preferences ───────────────────────────────────────
+
+// Helper: check a single notif preference for a user (default: true = on)
+async function getUserNotifPref(username, type) {
+  try {
+    const raw   = await redis.get(`notif:prefs:${username}`);
+    const prefs = parseR(raw) || {};
+    return prefs[type] !== false;
+  } catch { return true; }
+}
+
+const NOTIF_DEFAULTS = { digest: true, overdue: true, dayBefore: true, assignment: true, comments: true };
+
+app.get('/settings/notif-prefs', auth.requireAuth, async (req, res) => {
+  try {
+    const raw   = await redis.get(`notif:prefs:${req.user.username}`);
+    const saved = parseR(raw) || {};
+    res.json({ prefs: { ...NOTIF_DEFAULTS, ...saved } });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/settings/notif-prefs', auth.requireAuth, async (req, res) => {
+  try {
+    await redis.set(`notif:prefs:${req.user.username}`, req.body);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Settings: Telegram connection status ──────────────────────────────────────
+
+app.get('/settings/telegram-status', auth.requireAuth, async (req, res) => {
+  try {
+    const chatId = await personal.getChatId(req.user.telegram);
+    res.json({ connected: !!chatId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Settings: save timezone ───────────────────────────────────────────────────
+
+app.post('/auth/timezone', auth.requireAuth, async (req, res) => {
+  const { timezone } = req.body;
+  if (!timezone) return res.status(400).json({ error: 'timezone required' });
+  try {
+    await auth.saveTimezone(req.user.username, timezone);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Team timezones (for assignee picker live times) ───────────────────────────
+
+app.get('/team/timezones', auth.requireAuth, async (req, res) => {
+  try {
+    const result = await Promise.all(auth.MEMBERS.map(async m => {
+      const tz = await auth.getTimezone(m.username).catch(() => 'UTC');
+      let localTime = '';
+      try {
+        localTime = new Date().toLocaleTimeString('en-US', {
+          timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true,
+        });
+      } catch (_) {}
+      return { username: m.username, displayName: m.displayName, tz, localTime };
+    }));
+    res.json({ members: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
