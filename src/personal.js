@@ -128,14 +128,25 @@ async function deleteTask(username, taskId) {
 }
 
 // ── Telegram DM registration ──────────────────────────────────────────────────
+// Keys are always stored lowercase so case differences between Telegram's
+// canonical username and our team.json entries never cause a lookup miss.
 
 async function getChatId(telegramUsername) {
-  const v = await redis.get(`${CHAT_PREFIX}${telegramUsername}`);
+  if (!telegramUsername) return null;
+  const lower = telegramUsername.toLowerCase();
+  // Try lowercase first (canonical), then exact original as fallback
+  const v = await redis.get(`${CHAT_PREFIX}${lower}`)
+         || await redis.get(`${CHAT_PREFIX}${telegramUsername}`);
   return v ? String(v) : null;
 }
 
 async function setChatId(telegramUsername, chatId) {
-  await redis.set(`${CHAT_PREFIX}${telegramUsername}`, String(chatId));
+  const lower = telegramUsername.toLowerCase();
+  // Store under lowercase key; also write exact key for backward compat
+  await redis.set(`${CHAT_PREFIX}${lower}`, String(chatId));
+  if (lower !== telegramUsername) {
+    await redis.set(`${CHAT_PREFIX}${telegramUsername}`, String(chatId));
+  }
 }
 
 module.exports = {

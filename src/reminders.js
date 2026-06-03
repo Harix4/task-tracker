@@ -176,8 +176,15 @@ async function getAll() {
 
 async function firePersonal(r) {
   try {
+    // ── Debug logging ───────────────────────────────────────────────────────
+    console.log('[personal-reminder] Firing for:', r.username);
+    console.log('[personal-reminder] Looking up chatId for telegram username:', r.telegramUsername);
+    console.log('[personal-reminder] Redis key:', `personal:chatid:${(r.telegramUsername || '').toLowerCase()}`);
+
     // Resolve DM chat ID — NEVER fall back to group chat
     const chatId = await personal.getChatId(r.telegramUsername);
+    console.log('[personal-reminder] chatId found:', chatId ? `${chatId.slice(0, 4)}…` : 'NONE');
+
     if (!chatId) {
       console.warn(`[reminders] No personal chat ID for ${r.username} (@${r.telegramUsername}) — skipping`);
       return;

@@ -315,7 +315,11 @@ app.post('/telegram-webhook', async (req, res) => {
     }
 
     // Check the username is a known team member
-    const member = team.lookup(tgUser);
+    const member   = team.getAll().find(m => m.telegram?.toLowerCase() === tgUser.toLowerCase());
+    const redisKey = `personal:chatid:${tgUser.toLowerCase()}`;
+    console.log('[register] Saving chatId for:', tgUser, '→ Redis key:', redisKey);
+    console.log('[register] Team member match:', member ? member.name : 'unknown (will still register)');
+
     await personal.setChatId(tgUser, chatId);
 
     const name = member ? member.name : `@${tgUser}`;
@@ -416,6 +420,62 @@ app.post('/settings/notif-prefs', auth.requireAuth, async (req, res) => {
     await redis.set(`notif:prefs:${req.user.username}`, req.body);
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Debug endpoints ───────────────────────────────────────────────────────────
+
+// Returns which Telegram usernames have a registered chat ID in Redis
+// (masks the actual chat ID — just shows true/false per username)
+app.get('/debug/chatids', auth.requireAdmin, async (req, res) => {
+  try {
+    const members = team.getAll();
+    const result  = {};
+    for (const m of members) {
+      const chatId = await personal.getChatId(m.telegram);
+      result[m.telegram] = {
+        memberName: m.name,
+        registered: !!chatId,
+        redisKey: `personal:chatid:${(m.telegram || '').toLowerCase()}`,
+      };
+    }
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Send a test DM to a team member to verify their chat ID is registered and working
+app.post('/debug/test-personal-dm', auth.requireAdmin, async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  try {
+    const member = team.lookup(name);
+    if (!member) return res.status(404).json({ error: `No team member found matching "${name}"` });
+
+    const chatId = await personal.getChatId(member.telegram);
+    if (!chatId) {
+      return res.json({
+        ok: false,
+        member: member.name,
+        telegram: member.telegram,
+        redisKey: `personal:chatid:${member.telegram.toLowerCase()}`,
+        error: 'No chat ID registered. Member needs to send /register to the bot.',
+      });
+    }
+
+    await telegram.queueNotification(
+      `🔔 Test DM for ${member.name} — personal reminders are working correctly!`,
+      chatId
+    );
+
+    res.json({
+      ok: true,
+      member: member.name,
+      telegram: member.telegram,
+      chatIdPreview: `${chatId.slice(0, 4)}…`,
+      message: 'Test DM queued successfully',
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Settings: Telegram connection status ──────────────────────────────────────
