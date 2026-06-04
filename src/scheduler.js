@@ -185,6 +185,40 @@ async function sendWeeklyReport() {
     msg += `\n\n⏳ *Unacknowledged tasks:*\n` + unackLines.join('\n');
   }
 
+  // ── Weekly goals section ──────────────────────────────────────────────────
+  try {
+    const d = new Date();
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const currentWeek = Math.ceil((((d - jan1) / 86400000) + jan1.getDay() + 1) / 7);
+    const currentKey  = `${d.getFullYear()}-W${String(currentWeek).padStart(2, '0')}`;
+
+    const prev = new Date(d); prev.setDate(prev.getDate() - 7);
+    const pjan = new Date(prev.getFullYear(), 0, 1);
+    const prevWeek = Math.ceil((((prev - pjan) / 86400000) + pjan.getDay() + 1) / 7);
+    const prevKey  = `${prev.getFullYear()}-W${String(prevWeek).padStart(2, '0')}`;
+
+    const [currRaw, prevRaw] = await Promise.all([
+      redis.get(`weekly:goals:${currentKey}`),
+      redis.get(`weekly:goals:${prevKey}`),
+    ]);
+
+    const currGoals = (currRaw && typeof currRaw === 'object' ? currRaw : (currRaw ? JSON.parse(currRaw) : [])) || [];
+    const prevGoals = (prevRaw && typeof prevRaw === 'object' ? prevRaw : (prevRaw ? JSON.parse(prevRaw) : [])) || [];
+
+    // Current week's goals
+    if (currGoals.length) {
+      msg += `\n\n🎯 *This week's goals:*\n` +
+        currGoals.map(g => `- ${g.text} (${team.tag(g.owner)})`).join('\n');
+    }
+
+    // Last week completion rate
+    if (prevGoals.length) {
+      const prevDone = prevGoals.filter(g => g.status === 'done').length;
+      const pct      = Math.round((prevDone / prevGoals.length) * 100);
+      msg += `\n\n📈 *Last week goals: ${prevDone}/${prevGoals.length} completed (${pct}%)${pct === 100 ? ' 🌟' : ''}*`;
+    }
+  } catch (_) {}
+
   await telegram.queueNotification(msg);
 }
 

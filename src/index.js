@@ -26,6 +26,13 @@ function getWeekKey(d = new Date()) {
   return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
 }
 
+// Helper: get the week key for N weeks ago
+function offsetWeekKey(weeksBack = 1) {
+  const d = new Date();
+  d.setDate(d.getDate() - 7 * weeksBack);
+  return getWeekKey(d);
+}
+
 app.get('/goals/weekly', auth.requireAuth, async (req, res) => {
   try {
     const week  = getWeekKey();
@@ -36,6 +43,22 @@ app.get('/goals/weekly', auth.requireAuth, async (req, res) => {
       goals = goals.filter(g => g.owner === me || g.shared);
     }
     res.json({ goals, week });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Last week's goals — summary for "Last week: X/Y completed" line
+app.get('/goals/weekly/last', auth.requireAuth, async (req, res) => {
+  try {
+    const week  = offsetWeekKey(1);
+    const raw   = await redis.get(`weekly:goals:${week}`);
+    let   goals = parseR(raw) || [];
+    if (req.user.role !== 'admin') {
+      const me = req.user.username;
+      goals = goals.filter(g => g.owner === me || g.shared);
+    }
+    const total = goals.length;
+    const done  = goals.filter(g => g.status === 'done').length;
+    res.json({ goals, week, total, done });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

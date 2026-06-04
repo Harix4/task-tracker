@@ -1816,6 +1816,7 @@
     notifPrefs:    {},  // { digest, overdue, dayBefore, assignment, comments }
     ackSummary:    {},  // { [taskId]: { [username]: bool } }
     weeklyGoals:   [],  // [ { id, text, owner, category, shared, status, week } ]
+    lastWeekGoals: { total: 0, done: 0 },  // last week's completion stats
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -2890,6 +2891,9 @@
       authFetch('/goals/weekly').then(r => r.ok ? r.json() : null).then(d => {
         if (d?.goals) { state.weeklyGoals = d.goals; render(); }
       }).catch(() => {});
+      authFetch('/goals/weekly/last').then(r => r.ok ? r.json() : null).then(d => {
+        if (d) { state.lastWeekGoals = { total: d.total, done: d.done }; render(); }
+      }).catch(() => {});
       // Fetch ack summary for admin (shows who acknowledged each task)
       if (state.user?.role === 'admin') {
         authFetch('/tasks/ack-summary').then(r => r.ok ? r.json() : null).then(d => {
@@ -3334,7 +3338,17 @@
 
       <!-- ── Weekly Goals ─────────────────────────────────────────── -->
       <div class="goals-section-header">
-        <div class="goals-section-title">🎯 Weekly Goals</div>
+        <div>
+          <div class="goals-section-title">🎯 Weekly Goals</div>
+          ${state.lastWeekGoals.total > 0 ? (() => {
+            const { total, done } = state.lastWeekGoals;
+            const pct = Math.round((done / total) * 100);
+            return `<div style="font-size:12px;color:var(--muted);margin-top:3px">
+              Last week: <strong style="color:${pct===100?'var(--green)':pct>=50?'var(--orange)':'var(--red)'}">${done}/${total} completed (${pct}%)</strong>
+              ${pct === 100 ? '🌟' : ''}
+            </div>`;
+          })() : ''}
+        </div>
         <button class="new-task-btn" onclick="openGoalModal()">+ Add Goal</button>
       </div>
       ${state.weeklyGoals.length === 0
