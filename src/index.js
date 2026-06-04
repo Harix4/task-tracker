@@ -17,104 +17,6 @@ const auth = require('./auth');
 const personal = require('./personal');
 const redis = require('./redis-client');
 
-// ── Weekly Goals ─────────────────────────────────────────────────────────────
-
-function getWeekKey(d = new Date()) {
-  // ISO-8601 week key e.g. "2026-W23"
-  const jan1 = new Date(d.getFullYear(), 0, 1);
-  const week = Math.ceil((((d - jan1) / 86400000) + jan1.getDay() + 1) / 7);
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
-}
-
-// Helper: get the week key for N weeks ago
-function offsetWeekKey(weeksBack = 1) {
-  const d = new Date();
-  d.setDate(d.getDate() - 7 * weeksBack);
-  return getWeekKey(d);
-}
-
-app.get('/goals/weekly', auth.requireAuth, async (req, res) => {
-  try {
-    const week  = getWeekKey();
-    const raw   = await redis.get(`weekly:goals:${week}`);
-    let   goals = parseR(raw) || [];
-    if (req.user.role !== 'admin') {
-      const me = req.user.username;
-      goals = goals.filter(g => g.owner === me || g.shared);
-    }
-    res.json({ goals, week });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// Last week's goals — summary for "Last week: X/Y completed" line
-app.get('/goals/weekly/last', auth.requireAuth, async (req, res) => {
-  try {
-    const week  = offsetWeekKey(1);
-    const raw   = await redis.get(`weekly:goals:${week}`);
-    let   goals = parseR(raw) || [];
-    if (req.user.role !== 'admin') {
-      const me = req.user.username;
-      goals = goals.filter(g => g.owner === me || g.shared);
-    }
-    const total = goals.length;
-    const done  = goals.filter(g => g.status === 'done').length;
-    res.json({ goals, week, total, done });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/goals/weekly', auth.requireAuth, async (req, res) => {
-  const { text, category, shared } = req.body;
-  if (!text?.trim()) return res.status(400).json({ error: 'text required' });
-  try {
-    const week  = getWeekKey();
-    const raw   = await redis.get(`weekly:goals:${week}`);
-    const goals = parseR(raw) || [];
-    const goal  = {
-      id:           `wg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
-      text:         text.trim(),
-      owner:        req.user.username,
-      ownerDisplay: req.user.displayName || req.user.username,
-      category:     category || null,
-      shared:       !!shared,
-      status:       'active',
-      week,
-      createdAt:    new Date().toISOString(),
-    };
-    goals.unshift(goal);
-    await redis.set(`weekly:goals:${week}`, goals);
-    res.json({ goal });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.patch('/goals/weekly/:id', auth.requireAuth, async (req, res) => {
-  try {
-    const week  = getWeekKey();
-    const raw   = await redis.get(`weekly:goals:${week}`);
-    const goals = parseR(raw) || [];
-    const idx   = goals.findIndex(g => g.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Goal not found' });
-    if (goals[idx].owner !== req.user.username && req.user.role !== 'admin')
-      return res.status(403).json({ error: 'Access denied' });
-    Object.assign(goals[idx], req.body);
-    await redis.set(`weekly:goals:${week}`, goals);
-    res.json({ goal: goals[idx] });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/goals/weekly/:id', auth.requireAuth, async (req, res) => {
-  try {
-    const week   = getWeekKey();
-    const raw    = await redis.get(`weekly:goals:${week}`);
-    const before = parseR(raw) || [];
-    const after  = before.filter(g => {
-      if (g.id !== req.params.id) return true;
-      return g.owner !== req.user.username && req.user.role !== 'admin';
-    });
-    await redis.set(`weekly:goals:${week}`, after);
-    res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 // ── Task acknowledgement helpers ─────────────────────────────────────────────
 
 async function setupTaskAck(taskId, taskName, assigneeNames, dueDate, notes) {
@@ -200,6 +102,101 @@ app.use(
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Routes ──────────────────────────────────────────────────────────────────
+
+// ── Weekly Goals ─────────────────────────────────────────────────────────────
+
+function getWeekKey(d = new Date()) {
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil((((d - jan1) / 86400000) + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function offsetWeekKey(weeksBack = 1) {
+  const d = new Date();
+  d.setDate(d.getDate() - 7 * weeksBack);
+  return getWeekKey(d);
+}
+
+app.get('/goals/weekly', auth.requireAuth, async (req, res) => {
+  try {
+    const week  = getWeekKey();
+    const raw   = await redis.get(`weekly:goals:${week}`);
+    let   goals = parseR(raw) || [];
+    if (req.user.role !== 'admin') {
+      const me = req.user.username;
+      goals = goals.filter(g => g.owner === me || g.shared);
+    }
+    res.json({ goals, week });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/goals/weekly/last', auth.requireAuth, async (req, res) => {
+  try {
+    const week  = offsetWeekKey(1);
+    const raw   = await redis.get(`weekly:goals:${week}`);
+    let   goals = parseR(raw) || [];
+    if (req.user.role !== 'admin') {
+      const me = req.user.username;
+      goals = goals.filter(g => g.owner === me || g.shared);
+    }
+    const total = goals.length;
+    const done  = goals.filter(g => g.status === 'done').length;
+    res.json({ goals, week, total, done });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/goals/weekly', auth.requireAuth, async (req, res) => {
+  const { text, category, shared } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'text required' });
+  try {
+    const week  = getWeekKey();
+    const raw   = await redis.get(`weekly:goals:${week}`);
+    const goals = parseR(raw) || [];
+    const goal  = {
+      id:           `wg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`,
+      text:         text.trim(),
+      owner:        req.user.username,
+      ownerDisplay: req.user.displayName || req.user.username,
+      category:     category || null,
+      shared:       !!shared,
+      status:       'active',
+      week,
+      createdAt:    new Date().toISOString(),
+    };
+    goals.unshift(goal);
+    await redis.set(`weekly:goals:${week}`, goals);
+    res.json({ goal });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/goals/weekly/:id', auth.requireAuth, async (req, res) => {
+  try {
+    const week  = getWeekKey();
+    const raw   = await redis.get(`weekly:goals:${week}`);
+    const goals = parseR(raw) || [];
+    const idx   = goals.findIndex(g => g.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Goal not found' });
+    if (goals[idx].owner !== req.user.username && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'Access denied' });
+    Object.assign(goals[idx], req.body);
+    await redis.set(`weekly:goals:${week}`, goals);
+    res.json({ goal: goals[idx] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/goals/weekly/:id', auth.requireAuth, async (req, res) => {
+  try {
+    const week   = getWeekKey();
+    const raw    = await redis.get(`weekly:goals:${week}`);
+    const before = parseR(raw) || [];
+    const after  = before.filter(g => {
+      if (g.id !== req.params.id) return true;
+      return g.owner !== req.user.username && req.user.role !== 'admin';
+    });
+    await redis.set(`weekly:goals:${week}`, after);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 // ── Auth routes ──────────────────────────────────────────────────────────────
 
