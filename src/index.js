@@ -17,6 +17,31 @@ const auth = require('./auth');
 const personal = require('./personal');
 const redis = require('./redis-client');
 
+// ── Task acknowledgement helpers ─────────────────────────────────────────────
+
+async function setupTaskAck(taskId, taskName, assigneeNames, dueDate, notes) {
+  if (!assigneeNames?.length) return;
+  const assignedAt = new Date().toISOString();
+  const info = { taskName, assignees: assigneeNames, assignedAt, dueDate: dueDate || '' };
+  await redis.set(`task:assigned:${taskId}`, info).catch(() => {});
+
+  const notesLine = notes?.trim() ? `\n📝 Notes: ${notes.trim().slice(0, 300)}` : '';
+  for (const assignee of assigneeNames) {
+    await redis.set(`task:ack:${taskId}:${assignee}`, '0').catch(() => {}); // pending
+    const member = team.lookup(assignee);
+    if (!member) continue;
+    const chatId = await personal.getChatId(member.telegram).catch(() => null);
+    if (!chatId) continue;
+    telegram.queueNotification(
+      `👋 *New task assigned to you:*\n` +
+      `${taskName}\n` +
+      `Due: ${dueDate || 'No date set'}${notesLine}\n\n` +
+      `Reply /accept ${taskId} to acknowledge this task.`,
+      chatId
+    ).catch(() => {});
+  }
+}
+
 // ── Name matching ─────────────────────────────────────────────────────────────
 // Bidirectional case-insensitive fuzzy match for member names.
 // Handles "N1ka", "Harihar Singh", partial Notion display names, etc.
@@ -319,6 +344,26 @@ app.post('/telegram-webhook', async (req, res) => {
     const chatId  = String(msg.chat.id);
     const tgUser  = msg.from?.username;
 
+    // /accept [taskId] — acknowledge a task assignment
+    if (text.startsWith('/accept ')) {
+      const taskId = text.slice(8).trim();
+      if (taskId) {
+        const member = team.getAll().find(m => m.telegram?.toLowerCase() === tgUser.toLowerCase());
+        if (member) {
+          await redis.set(`task:ack:${taskId}:${member.name}`, '1');
+          const raw  = await redis.get(`task:assigned:${taskId}`).catch(() => null);
+          const info = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : null);
+          await telegram.queueNotification(
+            `✅ *Task acknowledged!*\n${info?.taskName || taskId}\n\nYou're confirmed on it!`,
+            chatId
+          );
+        } else {
+          await telegram.queueNotification('❌ Could not identify your account. Make sure you have sent /register first.', chatId);
+        }
+      }
+      return;
+    }
+
     if (text !== '/register') return;
 
     if (!tgUser) {
@@ -434,6 +479,28 @@ app.post('/settings/notif-prefs', auth.requireAuth, async (req, res) => {
   try {
     await redis.set(`notif:prefs:${req.user.username}`, req.body);
     res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Task acknowledgement summary ──────────────────────────────────────────────
+
+// Returns { [taskId]: { [assignee]: bool } } for all tasks with ack entries
+app.get('/tasks/ack-summary', auth.requireAuth, async (req, res) => {
+  try {
+    const keys    = await redis.keys('task:ack:*');
+    const summary = {};
+    for (const key of keys) {
+      // key: task:ack:{taskId}:{username}
+      const rest    = key.slice('task:ack:'.length);
+      const colonIdx = rest.lastIndexOf(':');
+      if (colonIdx < 1) continue;
+      const taskId   = rest.slice(0, colonIdx);
+      const username = rest.slice(colonIdx + 1);
+      if (!summary[taskId]) summary[taskId] = {};
+      const val = await redis.get(key);
+      summary[taskId][username] = val === '1';
+    }
+    res.json({ summary });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -612,6 +679,11 @@ app.post('/tasks', auth.requireAuth, async (req, res) => {
     // Track creation in history
     addTaskHistory(task.id, { action: 'task_created', by: req.user.username }).catch(() => {});
 
+    // Send ack DMs to assignees
+    if (assigneeNames.length) {
+      setupTaskAck(task.id, task.name, assigneeNames, dueDate, '').catch(() => {});
+    }
+
     // Team task created → group chat only (assigneeNames already set above)
     const tags = team.tagList(assigneeNames);
     const dueFmt = dueDate || 'No date set';
@@ -727,13 +799,39 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
 
     // Task assigned: was unassigned, now has assignees
     if (prevAssignees.length === 0 && assigneeNames.length > 0) {
-      const tags = team.tagList(assigneeNames);
-      const due  = body.dueDate || prev.dueDate || 'No date set';
+      const tags     = team.tagList(assigneeNames);
+      const due      = body.dueDate || prev.dueDate || 'No date set';
+      const metaData = tasksMeta.getTask(id) || {};
       telegram.queueNotification(
         `👤 *${taskName}* has been assigned to ${tags}\n` +
         `Due: ${due}`,
         process.env.TELEGRAM_CHAT_ID
       ).catch(err => console.error('[telegram] task assigned:', err.message));
+      // Send ack DMs to new assignees
+      setupTaskAck(id, taskName, assigneeNames, due, metaData.notes).catch(() => {});
+    }
+
+    // Completion confirmation to group
+    if (body.status === 'Done') {
+      const actor      = req.user.displayName || req.user.username;
+      const tags       = team.tagList(assigneeNames.length ? assigneeNames : prevAssignees);
+      const metaData   = tasksMeta.getTask(id) || {};
+      const hasNotes   = !!(metaData.notes?.trim());
+      let daysTaken    = '';
+      try {
+        const hist    = JSON.parse(await redis.get(`task:history:${id}`) || '[]');
+        const created = hist.find(h => h.action === 'task_created');
+        if (created) {
+          const d = Math.round((Date.now() - new Date(created.at).getTime()) / 86400000);
+          daysTaken = ` · ${d} day${d !== 1 ? 's' : ''} from creation`;
+        }
+      } catch (_) {}
+      telegram.queueNotification(
+        `✅ *${taskName}* completed by @${req.user.telegram || actor}\n` +
+        `Assigned to: ${tags}${daysTaken}\n` +
+        `Notes left: ${hasNotes ? 'Yes' : 'No'}`,
+        process.env.TELEGRAM_CHAT_ID
+      ).catch(() => {});
     }
 
     // History tracking (fire-and-forget)

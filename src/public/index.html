@@ -1490,6 +1490,15 @@
     .toggle-switch input:checked + .toggle-slider { background: var(--green); }
     .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
 
+    /* Task ack indicators */
+    .ack-badges { display: inline-flex; gap: 3px; align-items: center; flex-wrap: wrap; }
+    .ack-badge {
+      font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 20px;
+      display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;
+    }
+    .ack-yes { background: rgba(52,199,89,.15); color: var(--green); }
+    .ack-no  { background: rgba(255,149,0,.12);  color: var(--orange); }
+
     /* Telegram status dot */
     .tg-status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
     .tg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -1704,6 +1713,7 @@
     selectedTasks: new Set(),
     teamTimezones: {},  // { username: { tz, localTime, displayName } }
     notifPrefs:    {},  // { digest, overdue, dayBefore, assignment, comments }
+    ackSummary:    {},  // { [taskId]: { [username]: bool } }
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -2774,6 +2784,12 @@
       if (mr?.meta)       state.tasksMeta      = mr.meta;
       if (rcr?.recurring) state.recurring      = rcr.recurring;
       if (ptr?.tasks)     state.personalTasks  = ptr.tasks;
+      // Fetch ack summary for admin (shows who acknowledged each task)
+      if (state.user?.role === 'admin') {
+        authFetch('/tasks/ack-summary').then(r => r.ok ? r.json() : null).then(d => {
+          if (d?.summary) state.ackSummary = d.summary;
+        }).catch(() => {});
+      }
       flashDot();
     } catch (e) {
       console.warn('[taskr] fetch error:', e.message);
@@ -3262,7 +3278,9 @@
                 <input type="checkbox" id="selectAllCb" class="task-bulk-cb"
                   onchange="toggleSelectAll(this.checked)" title="Select all">
               </th>
-              <th>Task</th><th>Assignee</th><th>Due</th><th>Status</th><th class="td-actions"></th>
+              <th>Task</th><th>Assignee</th><th>Due</th><th>Status</th>
+              ${state.user?.role === 'admin' ? '<th style="font-size:10px">Ack</th>' : ''}
+              <th class="td-actions"></th>
             </tr></thead>
             <tbody>
               ${tasks.map(t => {
@@ -3278,6 +3296,17 @@
                   <td>${assignees.length ? avatarStackHtml(assignees, 22) : `<span style="font-size:12px;color:var(--muted)">—</span>`}</td>
                   <td>${dueDateRel(t.dueDate)}</td>
                   <td><div style="display:flex;align-items:center;gap:6px">${progressDot(t.status)}${statusPill(t.status)}</div></td>
+                  ${state.user?.role === 'admin' ? `<td onclick="event.stopPropagation()">
+                    <div class="ack-badges">
+                      ${assignees.map(a => {
+                        const acked = state.ackSummary[t.id]?.[a];
+                        if (acked === undefined) return '';
+                        return `<span class="ack-badge ${acked ? 'ack-yes' : 'ack-no'}" title="${esc(a)} ${acked ? 'acknowledged' : 'pending'}">
+                          ${acked ? '✅' : '⏳'} ${esc(a.split(' ')[0])}
+                        </span>`;
+                      }).join('')}
+                    </div>
+                  </td>` : ''}
                   <td class="td-actions" onclick="event.stopPropagation()">
                     <div class="row-actions">
                       <button class="row-action-btn ra-done" title="Mark done"

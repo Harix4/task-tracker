@@ -1,10 +1,12 @@
-const cron = require('node-cron');
-const notion = require('./notion');
-const telegram = require('./telegram');
-const tally = require('./tally');
-const team = require('./team');
+const cron      = require('node-cron');
+const notion    = require('./notion');
+const telegram  = require('./telegram');
+const tally     = require('./tally');
+const team      = require('./team');
 const reminders = require('./reminders');
 const recurring = require('./recurring');
+const tasksMeta = require('./tasks-meta');
+const redis     = require('./redis-client');
 
 // ── Message builders ────────────────────────────────────────────────────────
 
@@ -128,15 +130,62 @@ async function sendOverdueAlert() {
 async function sendWeeklyReport() {
   console.log('[scheduler] Sending weekly performance report');
   let { members, topPerformer } = await tally.computePerformance();
-  // Double-check: admin never appears in the report
+  // Admin never appears in the report
   members = members.filter(m => m.name !== 'Harihar Singh');
+
+  // Fetch stale "To do" tasks (overdue + still not started)
+  let staleTasks = [];
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
+    const all = await notion.queryTasksDatabase({
+      and: [
+        { property: 'Status', status: { equals: 'To do' } },
+        { property: 'Due date', date: { before: threeDaysAgo } },
+      ],
+    });
+    staleTasks = all.map(t => ({
+      name:      notion.getTaskName(t),
+      assignees: notion.getAssigneeNames(t),
+      dueDate:   notion.getDueDate(t),
+    }));
+  } catch (_) {}
+
+  // Fetch unacknowledged assignments
+  let unackLines = [];
+  try {
+    const keys = await redis.keys('task:assigned:*');
+    for (const key of keys) {
+      const taskId = key.slice('task:assigned:'.length);
+      const raw    = await redis.get(key);
+      const info   = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : null);
+      if (!info) continue;
+      const unacked = [];
+      for (const a of (info.assignees || [])) {
+        const ack = await redis.get(`task:ack:${taskId}:${a}`).catch(() => '0');
+        if (ack !== '1') unacked.push(a);
+      }
+      if (unacked.length) unackLines.push(`- ${info.taskName}: ${unacked.map(a => team.tag(a)).join(' ')}`);
+    }
+  } catch (_) {}
 
   if (members.length === 0) {
     await telegram.queueNotification('📊 *Weekly performance report*\n\nNo performance data available yet.');
     return;
   }
 
-  await telegram.queueNotification(buildWeeklyReport(members, topPerformer));
+  let msg = buildWeeklyReport(members, topPerformer);
+
+  if (staleTasks.length) {
+    msg += `\n\n📋 *Tasks with no updates (3+ days overdue, still To do):*\n` +
+      staleTasks.map(t => `- ${t.name} (${team.tagList(t.assignees)}) — due ${t.dueDate || '?'}`).join('\n');
+  }
+
+  if (unackLines.length) {
+    msg += `\n\n⏳ *Unacknowledged tasks:*\n` + unackLines.join('\n');
+  }
+
+  await telegram.queueNotification(msg);
 }
 
 // ── Recurring task generation ────────────────────────────────────────────────
@@ -218,24 +267,28 @@ async function sendDayBeforeReminders() {
     const status    = notion.getStatus(task);
     const tags      = team.tagList(assignees);
 
+    // Fetch notes from in-memory tasks-meta
+    const meta      = tasksMeta.getTask(task.id) || {};
+    const notes     = meta.notes?.trim() || '';
+    const notesLine = notes ? `\n📝 Notes: ${notes.slice(0, 300)}` : '';
+
     // Group chat notification
     telegram.queueNotification(
       `📅 *Due tomorrow: ${taskName}*\n` +
       `Assigned to: ${tags}\n` +
       `Due: ${dueDate}\n` +
-      `Status: ${status || 'No status'}`,
+      `Status: ${status || 'No status'}${notesLine}`,
       GROUP
     ).catch(console.error);
 
     // Personal DM to each assignee (respect dayBefore preference)
     const personalModule = require('./personal');
-    const redisModule    = require('./redis-client');
     for (const assignee of assignees) {
       const member = team.lookup(assignee);
       if (!member) continue;
       // Check pref
       try {
-        const raw   = await redisModule.get(`notif:prefs:${member.name}`);
+        const raw   = await redis.get(`notif:prefs:${member.name}`);
         const prefs = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : {});
         if (prefs.dayBefore === false) continue;
       } catch (_) {}
@@ -243,10 +296,77 @@ async function sendDayBeforeReminders() {
       if (!chatId) continue;
       telegram.queueNotification(
         `📅 *Heads up — ${taskName} is due tomorrow.*\n` +
-        `Make sure it's done by end of day.`,
+        `Make sure it's done by end of day.${notesLine}`,
         chatId
       ).catch(console.error);
     }
+  }
+}
+
+// ── Unacknowledged task follow-ups ────────────────────────────────────────────
+
+async function checkUnacknowledgedTasks() {
+  const personalModule = require('./personal');
+  const now = Date.now();
+  const TWO_HOURS  = 2 * 60 * 60 * 1000;
+  const FOUR_HOURS = 4 * 60 * 60 * 1000;
+
+  try {
+    const keys = await redis.keys('task:assigned:*');
+    for (const key of keys) {
+      const taskId = key.slice('task:assigned:'.length);
+      let info;
+      try {
+        const raw = await redis.get(key);
+        info = raw && typeof raw === 'object' ? raw : (raw ? JSON.parse(raw) : null);
+      } catch (_) { continue; }
+      if (!info) continue;
+
+      const elapsed = now - new Date(info.assignedAt).getTime();
+      if (elapsed > 24 * 60 * 60 * 1000) continue; // Ignore tasks assigned over 24h ago
+
+      for (const assignee of (info.assignees || [])) {
+        const ack = await redis.get(`task:ack:${taskId}:${assignee}`).catch(() => '0');
+        if (ack === '1') continue; // already acknowledged
+
+        const member = team.lookup(assignee);
+        if (!member) continue;
+
+        // 2-hour follow-up DM (fire once)
+        if (elapsed >= TWO_HOURS && elapsed < TWO_HOURS + 35 * 60 * 1000) {
+          const sentKey = `task:ack-sent:2h:${taskId}:${assignee}`;
+          const alreadySent = await redis.get(sentKey).catch(() => null);
+          if (!alreadySent) {
+            const chatId = await personalModule.getChatId(member.telegram);
+            if (chatId) {
+              await telegram.queueNotification(
+                `⚠️ *You have an unacknowledged task:*\n` +
+                `${info.taskName}\nDue: ${info.dueDate || 'No date'}\n\n` +
+                `Reply /accept ${taskId} to confirm you've seen this.`,
+                chatId
+              ).catch(() => {});
+              await redis.set(sentKey, '1');
+            }
+          }
+        }
+
+        // 4-hour admin notification (fire once per task total)
+        if (elapsed >= FOUR_HOURS && elapsed < FOUR_HOURS + 35 * 60 * 1000) {
+          const adminSentKey = `task:ack-sent:4h:${taskId}:${assignee}`;
+          const alreadySent  = await redis.get(adminSentKey).catch(() => null);
+          if (!alreadySent) {
+            telegram.queueNotification(
+              `⚠️ ${team.tag(assignee)} has not acknowledged:\n` +
+              `*${info.taskName}*\nDue: ${info.dueDate || 'No date'}\nAssigned 4 hours ago.`,
+              process.env.TELEGRAM_CHAT_ID
+            ).catch(() => {});
+            await redis.set(adminSentKey, '1');
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[scheduler] checkUnacknowledgedTasks:', err.message);
   }
 }
 
@@ -284,6 +404,9 @@ async function startScheduler() {
 
   // Day-before reminder — 8am in admin's timezone
   cron.schedule('0 8 * * *', () => sendDayBeforeReminders().catch(console.error), tzOpts);
+
+  // Check for unacknowledged tasks every 30 minutes (UTC — timing, not wall clock)
+  cron.schedule('*/30 * * * *', () => checkUnacknowledgedTasks().catch(console.error));
 
   console.log(`[scheduler] Jobs registered: recurring@6am · digest@9am · overdue@6pm · report@Mon9am · day-before@8am (all in ${adminTz})`);
 }

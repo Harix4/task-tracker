@@ -1,9 +1,10 @@
-const redis    = require('./redis-client');
-const notion   = require('./notion');
-const telegram = require('./telegram');
-const team     = require('./team');
-const personal = require('./personal');
-const auth     = require('./auth');
+const redis     = require('./redis-client');
+const notion    = require('./notion');
+const telegram  = require('./telegram');
+const team      = require('./team');
+const personal  = require('./personal');
+const auth      = require('./auth');
+const tasksMeta = require('./tasks-meta');
 
 // Check a user's notification preference (defaults to true / on)
 async function notifPref(username, type) {
@@ -79,13 +80,17 @@ async function load() {
 
 // ── Team reminder message ─────────────────────────────────────────────────────
 
-function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
-  const tags = team.tagList(assignees);
+function buildMessage({ name, assignees, dueDate, status, intervalKey, notes }) {
+  const tags      = team.tagList(assignees);
+  const notesLine = notes?.trim() ? `\n📝 Notes: ${notes.trim().slice(0, 300)}` : '';
+  const actionReq = status === 'To do'
+    ? `\n⚡ *Action required:* Please update the status on Klone HQ when you start this task.`
+    : '';
   return (
     `⏰ *Reminder: ${name}*\n` +
     `Assigned to: ${tags}\n` +
     `Due: ${dueDate || 'No due date'}\n` +
-    `Status: ${status || 'No status'}\n` +
+    `Status: ${status || 'No status'}${notesLine}${actionReq}\n` +
     `Next reminder in: ${INTERVAL_LABELS[intervalKey] || intervalKey}`
   );
 }
@@ -108,16 +113,21 @@ async function fireTeam(r) {
       return;
     }
 
+    // Fetch notes from in-memory tasks-meta (same process, same memory)
+    const meta  = tasksMeta.getTask(r.taskId) || {};
+    const notes = meta.notes?.trim() || '';
+
     // Overdue → overdue alert to group
     const today = new Date().toISOString().split('T')[0];
     if (dueDate && dueDate < today) {
-      const tags = team.tagList(assignees);
-      const days = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
+      const tags      = team.tagList(assignees);
+      const days      = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
+      const notesLine = notes ? `\n📝 Notes: ${notes.slice(0, 300)}` : '';
       await telegram.queueNotification(
         `🚨 *OVERDUE: ${taskName}*\n` +
         `Assigned to: ${tags}\n` +
         `Was due: ${dueDate} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
-        `Status: ${status || 'No status'}\n` +
+        `Status: ${status || 'No status'}${notesLine}\n` +
         `Please update this task in Notion.`,
         GROUP
       );
@@ -132,7 +142,7 @@ async function fireTeam(r) {
     }
     const tzNote = tzLines.length ? `\nLocal times: ${tzLines.join(' · ')}` : '';
     await telegram.queueNotification(
-      buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey }) + tzNote,
+      buildMessage({ name: taskName, assignees, dueDate, status, intervalKey: r.intervalKey, notes }) + tzNote,
       GROUP
     );
   } catch (err) {
@@ -212,6 +222,9 @@ async function firePersonal(r) {
       : 'Not set';
 
     // Build message for a given recipient timezone
+    const personalNotes = task.notes?.trim();
+    const notesLine     = personalNotes ? `\n📝 Notes: ${personalNotes.slice(0, 300)}` : '';
+
     function buildMsg(recipientTz) {
       const tStr = localTimeStr(recipientTz);
       if (task.dueDate && task.dueDate < today) {
@@ -219,7 +232,7 @@ async function firePersonal(r) {
         return (
           `🚨 *OVERDUE (Personal): ${task.name}*\n` +
           `Was due: ${fmtDueDate(task.dueDate, recipientTz)} (${days} day${days !== 1 ? 's' : ''} ago)\n` +
-          `Your time: ${tStr}\n` +
+          `Your time: ${tStr}${notesLine}\n` +
           `Please complete this task.`
         );
       }
@@ -227,7 +240,7 @@ async function firePersonal(r) {
         `⏰ *Personal Reminder: ${task.name}*\n` +
         `Due: ${fmtDueDate(task.dueDate, recipientTz)}\n` +
         `Priority: ${priorityLabel}\n` +
-        `Your time: ${tStr}\n` +
+        `Your time: ${tStr}${notesLine}\n` +
         `Reminding every: ${INTERVAL_LABELS[r.intervalKey] || r.intervalKey}`
       );
     }
