@@ -30,7 +30,11 @@ async function computePerformance() {
     }
   }
 
+  // Admin is excluded from the leaderboard — only team members are ranked
+  const ADMIN_NAME = 'Harihar Singh';
+
   const members = Object.entries(counts)
+    .filter(([name]) => name !== ADMIN_NAME)
     .map(([name, data]) => ({
       name,
       assigned: data.assigned,

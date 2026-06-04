@@ -20,7 +20,7 @@ function buildDailyDigest(tasks) {
   }
 
   for (const { assignees, items } of Object.values(byGroup)) {
-    const tags = assignees.map(a => team.tag(a)).join(' ');
+    const tags = team.tagList(assignees);
     msg += `\n${tags}\n`;
     for (const task of items) {
       const priorityTag = task.priority ? `[${task.priority.replace(/^[^\w]+/, '').toUpperCase()}] ` : '';
@@ -37,7 +37,7 @@ function buildOverdueAlert(overdueItems) {
 
   for (const item of overdueItems) {
     const days = item.daysOverdue;
-    const tags = (item.assignees.length ? item.assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
+    const tags = team.tagList(item.assignees);
     msg += `\n${tags} — ${item.name} (${days} day${days !== 1 ? 's' : ''} overdue)`;
   }
 
@@ -127,7 +127,9 @@ async function sendOverdueAlert() {
 
 async function sendWeeklyReport() {
   console.log('[scheduler] Sending weekly performance report');
-  const { members, topPerformer } = await tally.computePerformance();
+  let { members, topPerformer } = await tally.computePerformance();
+  // Double-check: admin never appears in the report
+  members = members.filter(m => m.name !== 'Harihar Singh');
 
   if (members.length === 0) {
     await telegram.queueNotification('📊 *Weekly performance report*\n\nNo performance data available yet.');
@@ -174,7 +176,7 @@ async function generateRecurringTasks() {
 
       recurring.update(rt.id, { lastCreated: today });
 
-      const tags = (rt.assignees || []).map(n => team.tag(n)).join(' ') || 'Unassigned';
+      const tags = team.tagList(rt.assignees);
       const freqLabel = FREQ_LABELS[rt.frequency] || (rt.customDays ? `Every ${rt.customDays} days` : rt.frequency);
       await telegram.queueNotification(
         `🔄 *Recurring task created*\n` +
@@ -214,7 +216,7 @@ async function sendDayBeforeReminders() {
     const dueDate   = notion.getDueDate(task);
     const assignees = notion.getAssigneeNames(task);
     const status    = notion.getStatus(task);
-    const tags      = assignees.length ? assignees.map(n => team.tag(n)).join(' ') : 'Unassigned';
+    const tags      = team.tagList(assignees);
 
     // Group chat notification
     telegram.queueNotification(

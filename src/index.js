@@ -613,7 +613,7 @@ app.post('/tasks', auth.requireAuth, async (req, res) => {
     addTaskHistory(task.id, { action: 'task_created', by: req.user.username }).catch(() => {});
 
     // Team task created → group chat only (assigneeNames already set above)
-    const tags = assigneeNames.length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
+    const tags = team.tagList(assigneeNames);
     const dueFmt = dueDate || 'No date set';
     const prioFmt = priority ? priority.replace(/^[^\w]+/, '').trim() : 'Not set';
     const catFmt  = category || 'Not set';
@@ -715,7 +715,7 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
     if ('category' in body && body.category !== prev.category)
       changes.push(`Category: ${prev.category || '—'} → ${body.category || 'removed'}`);
     if (assigneeNames.length && JSON.stringify(assigneeNames.sort()) !== JSON.stringify([...prevAssignees].sort()))
-      changes.push(`Assignees: ${assigneeNames.map(n => team.tag(n)).join(' ')}`);
+      changes.push(`Assignees: ${team.tagList(assigneeNames)}`);
 
     if (changes.length > 0) {
       telegram.queueNotification(
@@ -727,7 +727,7 @@ app.patch('/tasks/:id', auth.requireAuth, async (req, res) => {
 
     // Task assigned: was unassigned, now has assignees
     if (prevAssignees.length === 0 && assigneeNames.length > 0) {
-      const tags = assigneeNames.map(n => team.tag(n)).join(' ');
+      const tags = team.tagList(assigneeNames);
       const due  = body.dueDate || prev.dueDate || 'No date set';
       telegram.queueNotification(
         `👤 *${taskName}* has been assigned to ${tags}\n` +
@@ -775,7 +775,7 @@ app.post('/reminders', async (req, res) => {
     res.json({ ok: true, reminder });
 
     // Team reminder set → group chat only
-    const tags  = (assigneeNames || []).length ? assigneeNames.map(n => team.tag(n)).join(' ') : 'Unassigned';
+    const tags  = team.tagList(assigneeNames);
     const label = reminders.INTERVAL_LABELS[intervalKey] || intervalKey;
     telegram.queueNotification(
       `⏰ *Reminder set for: ${taskName || taskId}*\n` +

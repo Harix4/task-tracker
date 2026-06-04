@@ -80,7 +80,7 @@ async function load() {
 // ── Team reminder message ─────────────────────────────────────────────────────
 
 function buildMessage({ name, assignees, dueDate, status, intervalKey }) {
-  const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
+  const tags = team.tagList(assignees);
   return (
     `⏰ *Reminder: ${name}*\n` +
     `Assigned to: ${tags}\n` +
@@ -111,7 +111,7 @@ async function fireTeam(r) {
     // Overdue → overdue alert to group
     const today = new Date().toISOString().split('T')[0];
     if (dueDate && dueDate < today) {
-      const tags = (assignees?.length ? assignees : ['Unassigned']).map(a => team.tag(a)).join(' ');
+      const tags = team.tagList(assignees);
       const days = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
       await telegram.queueNotification(
         `🚨 *OVERDUE: ${taskName}*\n` +

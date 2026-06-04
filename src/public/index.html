@@ -3298,7 +3298,10 @@
   }
 
   function renderPerformance() {
-    const members = (state.perf?.members || []).slice().sort((a,b) => b.completionRate - a.completionRate);
+    // Admin excluded from leaderboard — only team members are ranked
+    const members = (state.perf?.members || [])
+      .filter(m => m.name !== 'Harihar Singh')
+      .slice().sort((a,b) => b.completionRate - a.completionRate);
     const top3 = members.slice(0, 3);
     const medals = ['🥇','🥈','🥉'];
     // Podium order: 2nd left, 1st center, 3rd right
