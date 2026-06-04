@@ -50,21 +50,16 @@ async function addTaskHistory(taskId, entry) {
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
-const REQUIRED_ENV = [
-  'NOTION_TOKEN',
-  'NOTION_TASKS_DB_ID',
-  'TELEGRAM_BOT_TOKEN',
-  'TELEGRAM_CHAT_ID',
-  // UPSTASH_REDIS_REST_URL / TOKEN are optional locally; the redis-client module
-  // falls back to an in-memory stub when they are absent.
+// Warn about missing env vars instead of crashing — app runs in degraded mode
+const OPTIONAL_WARN = [
+  'NOTION_TOKEN', 'NOTION_TASKS_DB_ID',
+  'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
+  'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
 ];
-
-for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) {
-    console.error(`Missing required environment variable: ${key}`);
-    process.exit(1);
-  }
+for (const key of OPTIONAL_WARN) {
+  if (!process.env[key]) console.warn(`[startup] WARNING: ${key} is not set — related features may be unavailable`);
 }
+const _startedAt = Date.now();
 
 // ── Express app ─────────────────────────────────────────────────────────────
 
@@ -84,6 +79,26 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── Routes ──────────────────────────────────────────────────────────────────
 
 // ── Auth routes ──────────────────────────────────────────────────────────────
+
+// ── Health check ─────────────────────────────────────────────────────────────
+app.get('/health', async (req, res) => {
+  const notion   = !!process.env.NOTION_TOKEN && !!process.env.NOTION_TASKS_DB_ID;
+  const redisOk  = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+  const telegram = !!process.env.TELEGRAM_BOT_TOKEN;
+
+  const uptimeSec = Math.floor((Date.now() - _startedAt) / 1000);
+  const h = Math.floor(uptimeSec / 3600);
+  const m = Math.floor((uptimeSec % 3600) / 60);
+  const uptime = h > 0 ? `${h}h ${m}m` : `${m}m`;
+
+  res.json({
+    status:   'ok',
+    notion,
+    redis:    redisOk,
+    telegram,
+    uptime,
+  });
+});
 
 // Returns member list for the login screen (no auth required)
 app.get('/auth/members', (req, res) => {

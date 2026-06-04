@@ -1,5 +1,10 @@
 const NOTION_API_BASE = 'https://api.notion.com/v1';
-const NOTION_VERSION = '2022-06-28';
+const NOTION_VERSION  = '2022-06-28';
+
+const NOTION_ENABLED = !!(process.env.NOTION_TOKEN && process.env.NOTION_TASKS_DB_ID);
+if (!NOTION_ENABLED) {
+  console.warn('[notion] WARNING: NOTION_TOKEN or NOTION_TASKS_DB_ID not set - Notion features disabled');
+}
 
 function headers() {
   return {
@@ -59,17 +64,19 @@ async function paginatedQuery(databaseId, filter = null, sorts = null) {
 }
 
 async function queryTasksDatabase(filter = null) {
+  if (!NOTION_ENABLED) return [];
   const dbId = process.env.NOTION_TASKS_DB_ID;
-  console.log(`[notion] queryTasksDatabase: DB_ID=${dbId ? dbId.slice(0, 8) + '…' : 'MISSING'}`);
   return paginatedQuery(dbId, filter);
 }
 
 async function getWorkspaceUsers() {
+  if (!NOTION_ENABLED) return [];
   const data = await notionRequest('/users');
   return (data.results || []).filter((u) => u.type === 'person');
 }
 
 async function createTask({ name, assigneeId, assigneeIds, dueDate, status, priority, category, sop }) {
+  if (!NOTION_ENABLED) throw new Error('Notion not configured');
   const properties = {
     'Task name': { title: [{ text: { content: name } }] },
   };
@@ -92,10 +99,12 @@ async function queryPerformanceDatabase(filter = null) {
 }
 
 async function getPage(pageId) {
+  if (!NOTION_ENABLED) return null;
   return notionRequest(`/pages/${pageId}`);
 }
 
 async function updatePage(pageId, properties) {
+  if (!NOTION_ENABLED) return;
   return notionRequest(`/pages/${pageId}`, 'PATCH', { properties });
 }
 
