@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const { handleWebhook } = require('./webhook');
-const { startScheduler } = require('./scheduler');
+const { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport, sendDayBeforeReminders } = require('./scheduler');
 const { computePerformance } = require('./tally');
 const notion = require('./notion');
 const telegram = require('./telegram');
@@ -502,6 +502,28 @@ app.get('/tasks/ack-summary', auth.requireAuth, async (req, res) => {
     }
     res.json({ summary });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Test endpoints (admin only) — fire scheduler jobs immediately ─────────────
+
+app.get('/test/digest',     auth.requireAdmin, async (req, res) => {
+  try { await sendDailyDigest();       res.json({ ok: true, fired: 'daily digest' }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/test/overdue',    auth.requireAdmin, async (req, res) => {
+  try { await sendOverdueAlert();      res.json({ ok: true, fired: 'overdue alert' }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/test/day-before', auth.requireAdmin, async (req, res) => {
+  try { await sendDayBeforeReminders(); res.json({ ok: true, fired: 'day-before reminders' }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/test/weekly',     auth.requireAdmin, async (req, res) => {
+  try { await sendWeeklyReport();      res.json({ ok: true, fired: 'weekly report' }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Debug endpoints ───────────────────────────────────────────────────────────

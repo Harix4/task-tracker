@@ -411,4 +411,4 @@ async function startScheduler() {
   console.log(`[scheduler] Jobs registered: recurring@6am · digest@9am · overdue@6pm · report@Mon9am · day-before@8am (all in ${adminTz})`);
 }
 
-module.exports = { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport };
+module.exports = { startScheduler, sendDailyDigest, sendOverdueAlert, sendWeeklyReport, sendDayBeforeReminders };
