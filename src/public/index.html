@@ -1524,6 +1524,76 @@
     }
     .tz-banner-link:hover { text-decoration: underline; }
 
+    /* ── Reports page ───────────────────────────────────────────── */
+    .report-range-bar {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .range-btn {
+      padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      background: var(--field-bg); color: var(--muted); border: none;
+      cursor: pointer; font-family: var(--font); transition: background 0.1s, color 0.1s;
+    }
+    .range-btn:hover { background: var(--nav-hover); color: var(--text); }
+    .range-btn.rng-active { background: var(--blue); color: #fff; }
+    .custom-range-row {
+      display: flex; align-items: center; gap: 8px; margin-top: 8px;
+    }
+    .report-metrics-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+      margin-bottom: 20px;
+    }
+    .report-metric {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow);
+    }
+    .report-metric-label { font-size: 12px; color: var(--muted); font-weight: 500; margin-bottom: 6px; }
+    .report-metric-value { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: var(--text); }
+    .report-metric-value.rm-green { color: var(--green); }
+    .report-metric-value.rm-blue  { color: var(--blue); }
+    .report-metric-value.rm-red   { color: var(--red); }
+
+    /* Report task table row borders */
+    .rt-done     td:first-child { border-left: 3px solid var(--green); }
+    .rt-progress td:first-child { border-left: 3px solid var(--blue); }
+    .rt-overdue  td:first-child { border-left: 3px solid var(--red); }
+
+    /* Team breakdown cards */
+    .report-team-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px; margin: 20px 0;
+    }
+    .report-member-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; box-shadow: var(--shadow);
+    }
+    .rmc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .rmc-name   { font-size: 13.5px; font-weight: 600; color: var(--text); }
+    .rmc-row    { display: flex; justify-content: space-between; font-size: 12.5px; margin-bottom: 5px; }
+    .rmc-label  { color: var(--muted); }
+    .rmc-val    { font-weight: 600; color: var(--text); }
+    .rmc-val.rv-green { color: var(--green); }
+    .rmc-val.rv-blue  { color: var(--blue); }
+    .rmc-val.rv-red   { color: var(--red); }
+    .rmc-bar-bg { height: 5px; background: var(--bar-track); border-radius: 100px; margin-top: 10px; overflow: hidden; }
+    .rmc-bar-fill { height: 100%; background: var(--green); border-radius: 100px; transition: width 0.5s ease; }
+
+    /* Timeline */
+    .report-timeline-list { display: flex; flex-direction: column; gap: 0; }
+    .rt-event {
+      display: flex; gap: 12px; align-items: flex-start; padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rt-event:last-child { border-bottom: none; }
+    .rt-time   { font-size: 11.5px; color: var(--muted); white-space: nowrap; min-width: 70px; margin-top: 2px; }
+    .rt-icon   { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .rt-desc   { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .rt-by     { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+    .report-section-title {
+      font-size: 13px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--muted); margin: 20px 0 12px;
+    }
+
     /* ── Weekly Goals ────────────────────────────────────────────── */
     .goals-section-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -1847,6 +1917,10 @@
     ackSummary:    {},  // { [taskId]: { [username]: bool } }
     weeklyGoals:   [],  // [ { id, text, owner, category, shared, status, week } ]
     lastWeekGoals: { total: 0, done: 0 },  // last week's completion stats
+    reportRange:    'today',  // 'today'|'yesterday'|'7d'|'30d'|'custom'
+    reportFrom:     '',
+    reportTo:       '',
+    reportTimeline: [],
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -1897,6 +1971,7 @@
     resources:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/><path d="M10 1.5v3.5h3.5"/><path d="M6.5 7.5h3M6.5 10h4.5"/></svg>`,
     completed:   `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>`,
     settings:    `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/></svg>`,
+    reports:     `<svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3.5-4 3 2.5L12 5l2 2"/><rect x="1" y="1" width="14" height="14" rx="2"/></svg>`,
   };
 
   const NAV_ITEMS = {
@@ -1907,6 +1982,7 @@
       { page: 'recurring',   label: 'Recurring' },
       { page: 'resources',   label: 'Resources' },
       { page: 'performance', label: 'Performance' },
+      { page: 'reports',     label: 'Reports' },
       { page: 'completed',   label: 'Completed' },
       { page: 'settings',    label: 'Settings' },
     ],
@@ -5032,6 +5108,216 @@
     authFetch(`/goals/weekly/${goalId}`, { method: 'DELETE' }).catch(() => {});
   }
 
+  // ── Reports page ──────────────────────────────────────────────────────────
+
+  function _reportDates() {
+    const pad  = n => String(n).padStart(2, '0');
+    const fmt  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const ago  = n => { const d = new Date(); d.setDate(d.getDate() - n); return fmt(d); };
+    const today = fmt(new Date());
+    switch (state.reportRange) {
+      case 'today':     return { from: today,   to: today };
+      case 'yesterday': return { from: ago(1),   to: ago(1) };
+      case '7d':        return { from: ago(7),   to: today };
+      case '30d':       return { from: ago(30),  to: today };
+      case 'custom':    return { from: state.reportFrom || today, to: state.reportTo || today };
+      default:          return { from: today,   to: today };
+    }
+  }
+
+  function _inRange(dateStr, from, to) {
+    if (!dateStr) return false;
+    const d = dateStr.slice(0, 10);
+    return d >= from && d <= to;
+  }
+
+  function setReportRange(range) {
+    state.reportRange = range;
+    renderReports();
+  }
+
+  async function renderReports() {
+    if (state.user?.role !== 'admin') { navigate('dashboard'); return; }
+    const main = document.getElementById('main');
+
+    const { from, to } = _reportDates();
+    const today = todayStr();
+
+    // Combine active + archived tasks filtered by date range
+    const activeTasks    = state.tasks.filter(t => _inRange(t.lastEdited, from, to));
+    const completedTasks = state.archive.filter(t => _inRange(t.completedAt, from, to))
+      .map(t => ({ ...t, status: 'Done', assignees: t.assignee ? [t.assignee] : [] }));
+    const allTasks = [...activeTasks, ...completedTasks];
+
+    // Metrics
+    const total      = allTasks.length;
+    const done       = allTasks.filter(t => t.status === 'Done').length;
+    const inProg     = allTasks.filter(t => t.status === 'In progress').length;
+    const overdue    = allTasks.filter(t => t.dueDate && t.dueDate < today && t.status !== 'Done').length;
+
+    // Team breakdown (exclude admin)
+    const REPORT_MEMBERS = ['Gelika', 'Irakli', 'N1ka', 'Cole'];
+    const memberStats = REPORT_MEMBERS.map(name => {
+      const mt = allTasks.filter(t =>
+        (t.assignees || []).some(a => namesMatch(a, name))
+      );
+      const mDone  = mt.filter(t => t.status === 'Done').length;
+      const mProg  = mt.filter(t => t.status === 'In progress').length;
+      const mOver  = mt.filter(t => t.dueDate && t.dueDate < today && t.status !== 'Done').length;
+      const rate   = mt.length > 0 ? Math.round((mDone / mt.length) * 100) : 0;
+      return { name, total: mt.length, done: mDone, inProgress: mProg, overdue: mOver, rate };
+    });
+
+    // Range label for header
+    const rangeLabels = { today:'Today', yesterday:'Yesterday', '7d':'Last 7 days', '30d':'Last 30 days', custom:'Custom range' };
+    const rangeLabel  = rangeLabels[state.reportRange] || 'Today';
+
+    // Table rows
+    const tableRows = allTasks.map(t => {
+      const cls = t.status === 'Done' ? 'rt-done' : t.status === 'In progress' ? 'rt-progress'
+                : (t.dueDate && t.dueDate < today) ? 'rt-overdue' : '';
+      const ags = (t.assignees || []).map(a => `<span style="font-size:12px">${esc(a.split(' ')[0])}</span>`).join(' ');
+      const pri = t.priority ? t.priority.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}️‍\s]+/u,'').trim() : '—';
+      return `<tr class="${cls}">
+        <td class="td-task" style="max-width:220px">${esc(t.name)}</td>
+        <td>${ags || '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${catPill(t.category) || '<span style="color:var(--muted)">—</span>'}</td>
+        <td style="font-size:12.5px">${esc(pri)}</td>
+        <td style="font-size:12px;color:var(--muted)">${dueDateRel(t.dueDate)}</td>
+        <td>${statusPill(t.status)}</td>
+      </tr>`;
+    }).join('');
+
+    // Team cards
+    const teamCards = memberStats.map(m => `
+      <div class="report-member-card">
+        <div class="rmc-header">
+          ${avatarHtml(m.name, 32)}
+          <div class="rmc-name">${esc(m.name)}</div>
+        </div>
+        <div class="rmc-row"><span class="rmc-label">Assigned</span><span class="rmc-val">${m.total}</span></div>
+        <div class="rmc-row"><span class="rmc-label">Completed</span><span class="rmc-val rv-green">${m.done}</span></div>
+        <div class="rmc-row"><span class="rmc-label">In progress</span><span class="rmc-val rv-blue">${m.inProgress}</span></div>
+        <div class="rmc-row"><span class="rmc-label">Overdue</span><span class="rmc-val rv-red">${m.overdue}</span></div>
+        <div class="rmc-row"><span class="rmc-label">Rate</span><span class="rmc-val">${m.rate}%</span></div>
+        <div class="rmc-bar-bg"><div class="rmc-bar-fill" style="width:${m.rate}%"></div></div>
+      </div>`).join('');
+
+    // Timeline events (use cached or empty while loading)
+    const timelineHtml = _renderTimelineHtml(state.reportTimeline);
+
+    main.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div class="page-title" style="margin-bottom:0">Reports</div>
+        <span style="font-size:12px;color:var(--muted)">${esc(from === to ? from : `${from} → ${to}`)}</span>
+      </div>
+
+      <!-- Date range selector -->
+      <div class="report-range-bar">
+        ${['today','yesterday','7d','30d','custom'].map(r =>
+          `<button class="range-btn${state.reportRange===r?' rng-active':''}" onclick="setReportRange('${r}')">
+            ${{ today:'Today', yesterday:'Yesterday', '7d':'Last 7 days', '30d':'Last 30 days', custom:'Custom' }[r]}
+          </button>`
+        ).join('')}
+        ${state.reportRange === 'custom' ? `
+          <div class="custom-range-row">
+            <input type="date" class="form-input" style="width:150px;height:32px" value="${esc(state.reportFrom)}"
+              onchange="state.reportFrom=this.value;renderReports()">
+            <span style="color:var(--muted);font-size:13px">to</span>
+            <input type="date" class="form-input" style="width:150px;height:32px" value="${esc(state.reportTo)}"
+              onchange="state.reportTo=this.value;renderReports()">
+          </div>` : ''}
+      </div>
+
+      <!-- Metrics -->
+      <div class="report-metrics-grid">
+        <div class="report-metric">
+          <div class="report-metric-label">Tasks in Range</div>
+          <div class="report-metric-value">${total}</div>
+        </div>
+        <div class="report-metric">
+          <div class="report-metric-label">Completed</div>
+          <div class="report-metric-value rm-green">${done}</div>
+        </div>
+        <div class="report-metric">
+          <div class="report-metric-label">In Progress</div>
+          <div class="report-metric-value rm-blue">${inProg}</div>
+        </div>
+        <div class="report-metric">
+          <div class="report-metric-label">Overdue</div>
+          <div class="report-metric-value rm-red">${overdue}</div>
+        </div>
+      </div>
+
+      <!-- Task table -->
+      <div class="report-section-title">Task Breakdown</div>
+      <div class="table-wrap">
+        ${allTasks.length === 0
+          ? '<div class="empty">No tasks in this date range</div>'
+          : `<table>
+              <thead><tr>
+                <th>Task</th><th>Assigned To</th><th>Category</th>
+                <th>Priority</th><th>Due</th><th>Status</th>
+              </tr></thead>
+              <tbody>${tableRows}</tbody>
+             </table>`}
+      </div>
+
+      <!-- Team breakdown -->
+      <div class="report-section-title">Team Breakdown</div>
+      <div class="report-team-grid">${teamCards}</div>
+
+      <!-- Activity timeline -->
+      <div class="report-section-title">Activity Timeline</div>
+      <div class="card">
+        <div class="card-body" style="padding:12px 20px">
+          <div class="report-timeline-list" id="reportTimeline">
+            ${timelineHtml}
+          </div>
+        </div>
+      </div>`;
+
+    // Fetch timeline (or refresh if already loaded)
+    authFetch('/reports/timeline?limit=40')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.timeline) {
+          state.reportTimeline = d.timeline;
+          const el = document.getElementById('reportTimeline');
+          if (el) el.innerHTML = _renderTimelineHtml(d.timeline);
+        }
+      }).catch(() => {});
+  }
+
+  function _renderTimelineHtml(events) {
+    if (!events?.length) return '<div class="empty" style="padding:20px">No activity recorded yet</div>';
+    const icons = {
+      task_created:     '✨', task_completed: '✅', status_changed:  '🔄',
+      due_date_changed: '📅', assignee_changed: '👤', comment_added: '💬',
+      name_changed:     '✏️',
+    };
+    return events.map(h => {
+      const icon = icons[h.action] || '•';
+      const by   = h.by ? `<span style="font-weight:600">${esc(h.by.split(' ')[0])}</span>` : '';
+      let desc = '';
+      switch (h.action) {
+        case 'task_created':      desc = `${by} created a task`; break;
+        case 'task_completed':    desc = `${by} completed a task`; break;
+        case 'status_changed':    desc = `${by} changed status <span style="color:var(--muted);text-decoration:line-through">${esc(h.from)}</span> → <strong>${esc(h.to)}</strong>`; break;
+        case 'due_date_changed':  desc = `${by} changed due date to <strong>${esc(h.to)}</strong>`; break;
+        case 'assignee_changed':  desc = `${by} updated assignees`; break;
+        case 'comment_added':     desc = `${by} added a comment`; break;
+        case 'name_changed':      desc = `${by} renamed task`; break;
+        default:                  desc = `${by} made a change`;
+      }
+      return `<div class="rt-event">
+        <div class="rt-time">${timeAgo(h.at)}</div>
+        <div class="rt-icon">${icon}</div>
+        <div><div class="rt-desc">${desc}</div></div>
+      </div>`;
+    }).join('');
+  }
+
   // ── Settings page ─────────────────────────────────────────────────────────
   let _settingsClock = null;
 
@@ -5219,6 +5505,7 @@
       case 'completed':   main.innerHTML = renderCompleted();   break;
       case 'recurring':   main.innerHTML = renderRecurring();   break;
       case 'settings':    renderSettings();                     break;
+      case 'reports':     renderReports();                      break;
     }
   }
 

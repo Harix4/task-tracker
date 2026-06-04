@@ -599,6 +599,25 @@ app.get('/tasks/ack-summary', auth.requireAuth, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+// Activity timeline: scan all task:history:* keys and return recent events
+app.get('/reports/timeline', auth.requireAdmin, async (req, res) => {
+  try {
+    const limit  = Math.min(parseInt(req.query.limit) || 40, 100);
+    const keys   = await redis.keys('task:history:*');
+    const events = [];
+    for (const key of keys) {
+      const taskId = key.slice('task:history:'.length);
+      const raw    = await redis.get(key);
+      const hist   = parseR(raw) || [];
+      for (const h of hist) events.push({ ...h, taskId });
+    }
+    events.sort((a, b) => new Date(b.at) - new Date(a.at));
+    res.json({ timeline: events.slice(0, limit) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Test endpoints (admin only) — fire scheduler jobs immediately ─────────────
 
 app.get('/test/digest',     auth.requireAdmin, async (req, res) => {
