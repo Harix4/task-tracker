@@ -1523,6 +1523,74 @@
     }
     .tz-banner-link:hover { text-decoration: underline; }
 
+    /* ── Weekly Goals ────────────────────────────────────────────── */
+    .goals-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 26px 0 14px;
+    }
+    .goals-section-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .goals-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .goal-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 16px;
+      box-shadow: var(--shadow); transition: opacity 0.3s;
+    }
+    .goal-card.goal-done { opacity: 0.55; }
+
+    .goal-cb {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 1.5px solid var(--cb-border); background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; padding: 0;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .goal-cb:hover { border-color: var(--green); }
+    .goal-cb.goal-checked { background: var(--green); border-color: var(--green); }
+    @keyframes goal-pop { 0%{transform:scale(1)} 35%{transform:scale(1.3)} 100%{transform:scale(1)} }
+    .goal-cb.goal-popping { animation: goal-pop 0.22s ease; }
+
+    .goal-body { flex: 1; min-width: 0; }
+    .goal-text {
+      font-size: 14px; font-weight: 500; color: var(--text);
+      line-height: 1.4; margin-bottom: 6px;
+    }
+    .goal-done .goal-text { text-decoration: line-through; color: var(--muted); }
+    .goal-meta {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .goal-owner { font-size: 12px; color: var(--muted); }
+    .goal-shared-badge {
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+      background: rgba(0,113,227,.12); color: var(--blue); letter-spacing: .02em;
+    }
+    .goal-delete-btn {
+      font-size: 12px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 2px 5px; border-radius: 5px; flex-shrink: 0;
+      opacity: 0; transition: opacity 0.1s, color 0.1s;
+    }
+    .goal-card:hover .goal-delete-btn { opacity: 1; }
+    .goal-delete-btn:hover { color: var(--red); }
+
+    /* Goal creation modal */
+    .goal-modal-overlay {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(0,0,0,.45); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .goal-modal-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 26px 26px 20px; width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    .goal-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 18px; color: var(--text); }
+    .goal-share-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .goal-share-label { font-size: 13.5px; color: var(--text); }
+
     /* ── Comments ───────────────────────────────────────────────── */
     .comments-list {
       display: flex; flex-direction: column; gap: 12px;
@@ -1683,6 +1751,39 @@
   <div class="panel-body" id="panelBody"></div>
 </aside>
 
+<!-- ── Weekly Goal modal ──────────────────────────────────────────────────── -->
+<div class="goal-modal-overlay" id="goalModal" style="display:none" onclick="closeGoalModal()">
+  <div class="goal-modal-card" onclick="event.stopPropagation()">
+    <div class="goal-modal-title">New Weekly Goal</div>
+    <div class="form-field">
+      <label class="form-label">Goal</label>
+      <input id="goalText" class="form-input" type="text" placeholder="What do you want to achieve this week?">
+    </div>
+    <div class="form-field">
+      <label class="form-label">Category</label>
+      <select id="goalCategory" class="form-input">
+        <option value="">— None —</option>
+        <option value="Ads">Ads</option>
+        <option value="Fulfillment">Fulfillment</option>
+        <option value="Creative">Creative</option>
+        <option value="Finance">Finance</option>
+        <option value="Operations">Operations</option>
+        <option value="Marketing">Marketing</option>
+        <option value="Accounting">Accounting</option>
+      </select>
+    </div>
+    <div class="goal-share-row">
+      <span class="goal-share-label">Share with team (visible to everyone)</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="goalShared">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <button class="panel-save-btn" onclick="submitGoal()">Add Goal</button>
+    <button class="modal-cancel-btn" onclick="closeGoalModal()">Cancel</button>
+  </div>
+</div>
+
 <!-- ── Bulk action bar ────────────────────────────────────────────────────── -->
 <div class="bulk-bar" id="bulkBar">
   <span class="bulk-count" id="bulkCount">0 tasks selected</span>
@@ -1714,6 +1815,7 @@
     teamTimezones: {},  // { username: { tz, localTime, displayName } }
     notifPrefs:    {},  // { digest, overdue, dayBefore, assignment, comments }
     ackSummary:    {},  // { [taskId]: { [username]: bool } }
+    weeklyGoals:   [],  // [ { id, text, owner, category, shared, status, week } ]
   };
 
   const TEAM = ['Gelika', 'Irakli', 'N1ka', 'Cole', 'Harihar Singh'];
@@ -2784,6 +2886,10 @@
       if (mr?.meta)       state.tasksMeta      = mr.meta;
       if (rcr?.recurring) state.recurring      = rcr.recurring;
       if (ptr?.tasks)     state.personalTasks  = ptr.tasks;
+      // Weekly goals
+      authFetch('/goals/weekly').then(r => r.ok ? r.json() : null).then(d => {
+        if (d?.goals) { state.weeklyGoals = d.goals; render(); }
+      }).catch(() => {});
       // Fetch ack summary for admin (shows who acknowledged each task)
       if (state.user?.role === 'admin') {
         authFetch('/tasks/ack-summary').then(r => r.ok ? r.json() : null).then(d => {
@@ -3224,7 +3330,42 @@
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:14px;text-align:right">
         🌐 Times shown in ${getUserTz().replace(/_/g,' ')}
-      </div>`;
+      </div>
+
+      <!-- ── Weekly Goals ─────────────────────────────────────────── -->
+      <div class="goals-section-header">
+        <div class="goals-section-title">🎯 Weekly Goals</div>
+        <button class="new-task-btn" onclick="openGoalModal()">+ Add Goal</button>
+      </div>
+      ${state.weeklyGoals.length === 0
+        ? `<div class="empty" style="padding:28px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)">
+             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><circle cx="14" cy="14" r="12"/><path d="M14 8v6l4 2"/></svg>
+             <div>No goals set for this week</div>
+           </div>`
+        : `<div class="goals-list">
+            ${state.weeklyGoals.map(g => `
+              <div class="goal-card${g.status==='done'?' goal-done':''}" id="goal_${esc(g.id)}">
+                <button class="goal-cb${g.status==='done'?' goal-checked':''}"
+                  onclick="toggleGoalDone('${esc(g.id)}','${esc(g.status)}')">
+                  ${g.status==='done'
+                    ? `<svg width="12" height="10" viewBox="0 0 12 10" fill="none"><path d="M1 5l3.5 3.5L11 1" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+                    : ''}
+                </button>
+                <div class="goal-body">
+                  <div class="goal-text">${esc(g.text)}</div>
+                  <div class="goal-meta">
+                    ${avatarHtml(g.owner, 18)}
+                    <span class="goal-owner">${esc(g.ownerDisplay || g.owner)}</span>
+                    ${g.category ? catPill(g.category) : ''}
+                    ${g.shared ? '<span class="goal-shared-badge">Team</span>' : ''}
+                  </div>
+                </div>
+                ${g.owner === state.user?.username || state.user?.role === 'admin'
+                  ? `<button class="goal-delete-btn" onclick="deleteGoal('${esc(g.id)}')">✕</button>`
+                  : ''}
+              </div>`).join('')}
+          </div>`}`;
+  }
   }
 
   function renderTasks() {
@@ -4791,6 +4932,71 @@
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Weekly Goals ──────────────────────────────────────────────────────────
+  function openGoalModal() {
+    document.getElementById('goalText').value     = '';
+    document.getElementById('goalCategory').value = '';
+    document.getElementById('goalShared').checked = false;
+    document.getElementById('goalModal').style.display = 'flex';
+    setTimeout(() => document.getElementById('goalText')?.focus(), 50);
+  }
+
+  function closeGoalModal() {
+    document.getElementById('goalModal').style.display = 'none';
+  }
+
+  // Enter key on goal text submits
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('goalModal')?.style.display !== 'flex') return;
+    if (e.key === 'Enter') { e.preventDefault(); submitGoal(); }
+    if (e.key === 'Escape') closeGoalModal();
+  });
+
+  async function submitGoal() {
+    const text     = document.getElementById('goalText')?.value.trim();
+    if (!text) return;
+    const category = document.getElementById('goalCategory')?.value || null;
+    const shared   = document.getElementById('goalShared')?.checked || false;
+    closeGoalModal();
+    try {
+      const res  = await authFetch('/goals/weekly', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, category, shared }),
+      });
+      const data = await res.json();
+      if (res.ok) { state.weeklyGoals.unshift(data.goal); render(); }
+    } catch (err) { console.error('[goals] submit:', err.message); }
+  }
+
+  async function toggleGoalDone(goalId, currentStatus) {
+    const newStatus = currentStatus === 'done' ? 'active' : 'done';
+    // Optimistic update
+    const g = state.weeklyGoals.find(g => g.id === goalId);
+    if (g) g.status = newStatus;
+
+    // Checkbox pop animation
+    const cb = document.querySelector(`#goal_${goalId} .goal-cb`);
+    if (cb) { cb.classList.add('goal-popping'); setTimeout(() => cb.classList.remove('goal-popping'), 250); }
+    render();
+
+    try {
+      await authFetch(`/goals/weekly/${goalId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+    } catch (err) {
+      // Rollback
+      if (g) g.status = currentStatus;
+      render();
+    }
+  }
+
+  async function deleteGoal(goalId) {
+    state.weeklyGoals = state.weeklyGoals.filter(g => g.id !== goalId);
+    render();
+    authFetch(`/goals/weekly/${goalId}`, { method: 'DELETE' }).catch(() => {});
+  }
+
   // ── Settings page ─────────────────────────────────────────────────────────
   let _settingsClock = null;
 
