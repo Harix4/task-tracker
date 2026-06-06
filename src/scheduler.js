@@ -72,7 +72,7 @@ function buildWeeklyReport(members, topPerformer) {
 
 async function sendDailyDigest() {
   console.log('[scheduler] Sending daily digest');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayInTz();
 
   const tasks = await notion.queryTasksDatabase({
     and: [
@@ -98,7 +98,7 @@ async function sendDailyDigest() {
 
 async function sendOverdueAlert() {
   console.log('[scheduler] Sending overdue alert');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayInTz();
 
   const tasks = await notion.queryTasksDatabase({
     and: [
@@ -136,8 +136,8 @@ async function sendWeeklyReport() {
   // Fetch stale "To do" tasks (overdue + still not started)
   let staleTasks = [];
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
+    const today = todayInTz();
+    const threeDaysAgo = nDaysAgoInTz(3);
     const all = await notion.queryTasksDatabase({
       and: [
         { property: 'Status', status: { equals: 'To do' } },
@@ -231,7 +231,7 @@ const FREQ_LABELS = {
 
 async function generateRecurringTasks() {
   console.log('[scheduler] Generating recurring tasks');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayInTz();
 
   // Fetch workspace users once for name→ID mapping
   let workspaceUsers = [];
@@ -279,9 +279,7 @@ async function generateRecurringTasks() {
 
 async function sendDayBeforeReminders() {
   console.log('[scheduler] Sending day-before reminders');
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const tomorrow = d.toISOString().split('T')[0];
+  const tomorrow = nDaysAgoInTz(-1); // "today + 1" in admin timezone
 
   const tasks = await notion.queryTasksDatabase({
     and: [
@@ -408,12 +406,20 @@ async function checkUnacknowledgedTasks() {
 
 const auth = require('./auth');
 
-// Admin timezone is hardcoded — the Redis-stored tz (set by browser login) can
-// differ from the intended scheduler timezone, so we pin it explicitly.
+// Return today's date string (YYYY-MM-DD) in the given IANA timezone.
+// Using the admin's timezone ensures tasks due "today" are never
+// flagged overdue until midnight in their local time.
 const ADMIN_TZ = 'America/Los_Angeles';
+function todayInTz(tz = ADMIN_TZ) {
+  return new Date().toLocaleDateString('en-CA', { timeZone: tz });
+}
+function nDaysAgoInTz(n, tz = ADMIN_TZ) {
+  const d = new Date(Date.now() - n * 86400000);
+  return d.toLocaleDateString('en-CA', { timeZone: tz });
+}
 
 async function getAdminTz() {
-  return ADMIN_TZ;
+  return ADMIN_TZ; // defined at top of file
 }
 
 async function startScheduler() {

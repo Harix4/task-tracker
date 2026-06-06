@@ -2549,8 +2549,8 @@
       : `your Klone HQ bot`;
     return `
       ${_setupDots(3)}
-      <div class="setup-title">Get Telegram reminders</div>
-      <div class="setup-sub">Receive personal task reminders directly in your DMs.</div>
+      <div class="setup-title">Get Telegram reminders <span style="font-size:13px;font-weight:400;color:var(--muted)">(optional)</span></div>
+      <div class="setup-sub">Optionally receive personal task reminders directly in your Telegram DMs. You can skip this and use the app normally without it.</div>
       <div class="setup-tg-card">
         <div class="setup-tg-num">1</div>
         <div class="setup-tg-text">Open ${link} on Telegram</div>
@@ -2972,9 +2972,17 @@
     return `${mon} ${+day}, ${y}`;
   }
 
+  // Returns today's date in the user's saved timezone (or browser local time).
+  // Uses en-CA locale because it produces YYYY-MM-DD format natively.
   function todayStr() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const tz = getUserTz();
+    try {
+      return new Date().toLocaleDateString('en-CA', { timeZone: tz });
+    } catch {
+      // Fallback to local time if tz string is invalid
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
   }
 
   function weekStartStr() {
@@ -5579,7 +5587,7 @@
            <div class="tg-status-label">Not connected</div>
          </div>
          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
-           Connect to receive task reminders as private DMs.
+           Optionally connect to receive task reminders as private DMs. The app works fully without this.
          </p>
          <div class="setup-tg-card">
            <div class="setup-tg-num">1</div>

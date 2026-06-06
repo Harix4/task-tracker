@@ -15,6 +15,13 @@ async function notifPref(username, type) {
   } catch { return true; }
 }
 
+// Return today's date string (YYYY-MM-DD) in the admin's timezone.
+// Prevents tasks from being flagged overdue before midnight LA time.
+const ADMIN_TZ_REM = 'America/Los_Angeles';
+function todayInAdminTz() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: ADMIN_TZ_REM });
+}
+
 // Format current time in a given IANA timezone, e.g. "9:05 AM"
 function localTimeStr(tz) {
   try {
@@ -118,7 +125,7 @@ async function fireTeam(r) {
     const notes = meta.notes?.trim() || '';
 
     // Overdue → overdue alert to group
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayInAdminTz();
     if (dueDate && dueDate < today) {
       const tags      = team.tagList(assignees);
       const days      = Math.floor((Date.now() - new Date(dueDate).getTime()) / 86400000);
@@ -216,7 +223,7 @@ async function firePersonal(r) {
     }
 
     const tz    = await auth.getTimezone(r.username);
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayInAdminTz();
 
     // Strip emoji prefix from priority value (e.g. "🔴 High" → "High")
     const priorityLabel = task.priority
