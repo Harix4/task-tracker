@@ -3193,6 +3193,9 @@
     renderNav();
     closePanel();
     render();
+    // Mobile: close the "More" drawer and sync bottom tab bar active state
+    closeMobDrawer();
+    updateMobileTabs(page);
   }
 
   // ── Panel ──────────────────────────────────────────────────────────────────
@@ -5699,14 +5702,6 @@
     const isAdmin = u?.role === 'admin';
     document.getElementById('mobPerformanceItem')?.style && (document.getElementById('mobPerformanceItem').style.display = isAdmin ? '' : 'none');
     document.getElementById('mobReportsItem')?.style && (document.getElementById('mobReportsItem').style.display = isAdmin ? '' : 'none');
-  }
-
-  // Patch navigate to also update mobile tabs
-  const _origNavigate = navigate;
-  function navigate(page) {
-    closeMobDrawer();
-    _origNavigate(page);
-    updateMobileTabs(page);
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
