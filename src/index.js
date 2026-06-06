@@ -633,30 +633,51 @@ app.get('/reports/timeline', auth.requireAdmin, async (req, res) => {
 // Test: send a DM to N1ka to verify her notification path works
 // Test ALL notifications at once
 app.get('/test/notifications', async (req, res) => {
-  const results = [];
-
-  // 1. Group chat
   try {
-    const r = await telegram.sendMessage('🧪 Test notification — all systems working', process.env.TELEGRAM_CHAT_ID);
-    results.push({ target: 'group_chat', ok: r.ok });
-  } catch (e) { results.push({ target: 'group_chat', ok: false, error: e.message }); }
-
-  // 2. Each team member's DM
-  for (const member of team.getAll()) {
-    const chatId = await personal.getChatIdByName(member.name).catch(() => null);
-    if (!chatId) {
-      results.push({ target: member.name, telegram: member.telegram, ok: false, error: 'not registered' });
-      continue;
-    }
+    // ── Group chat ────────────────────────────────────────────────
+    let groupChat = { ok: false, error: null };
     try {
-      const r = await telegram.sendMessage(`🧪 Test DM for ${member.name} — notifications working`, chatId);
-      results.push({ target: member.name, telegram: member.telegram, chatIdPreview: `${chatId.slice(0,4)}…`, ok: r.ok });
+      const r = await telegram.sendMessage(
+        '🧪 Test notification — all systems working',
+        process.env.TELEGRAM_CHAT_ID
+      );
+      groupChat = { ok: !!r?.ok, error: r?.ok ? null : (r?.description || 'unknown error') };
     } catch (e) {
-      results.push({ target: member.name, telegram: member.telegram, ok: false, error: e.message });
+      groupChat = { ok: false, error: e.message };
     }
-  }
 
-  res.json({ results, allOk: results.every(r => r.ok) });
+    // ── Per-member DMs ────────────────────────────────────────────
+    const members = [];
+    for (const member of team.getAll()) {
+      const chatId = await personal.getChatIdByName(member.name).catch(() => null);
+      const entry = {
+        name:        member.name,
+        telegram:    member.telegram,
+        chatIdFound: !!chatId,
+        dmSent:      false,
+        error:       null,
+      };
+      if (chatId) {
+        try {
+          const r = await telegram.sendMessage(
+            `🧪 Test DM for ${member.name} — notifications working`,
+            chatId
+          );
+          entry.dmSent = !!r?.ok;
+          if (!r?.ok) entry.error = r?.description || 'send failed';
+        } catch (e) {
+          entry.error = e.message;
+        }
+      } else {
+        entry.error = 'not registered — member needs to send /register to the bot';
+      }
+      members.push(entry);
+    }
+
+    res.json({ groupChat, members });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/test/notify-n1ka', async (req, res) => {
