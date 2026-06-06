@@ -646,9 +646,16 @@ app.get('/test/notifications', async (req, res) => {
       groupChat = { ok: false, error: e.message };
     }
 
-    // ── Per-member DMs ────────────────────────────────────────────
+    // ── Per-member DMs (all 5 team members, hardcoded to guarantee none are skipped)
+    const ALL_MEMBERS = [
+      { name: 'Harihar Singh', telegram: 'harixfour' },
+      { name: 'Gelika',        telegram: 'Gelika'    },
+      { name: 'Irakli',        telegram: 'n1tchvar'  },
+      { name: 'N1ka',          telegram: 'Abduu_19'  },
+      { name: 'Cole',          telegram: 'COLE4L'    },
+    ];
     const members = [];
-    for (const member of team.getAll()) {
+    for (const member of ALL_MEMBERS) {
       const chatId = await personal.getChatIdByName(member.name).catch(() => null);
       const entry = {
         name:        member.name,
