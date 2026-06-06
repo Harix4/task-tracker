@@ -131,6 +131,29 @@ async function deleteTask(username, taskId) {
 // Keys are always stored lowercase so case differences between Telegram's
 // canonical username and our team.json entries never cause a lookup miss.
 
+// Hardcoded Telegram username overrides — same source of truth as team.js
+const TELEGRAM_HARDCODED = {
+  'n1ka':         'Abduu_19',
+  'harihar singh':'harixfour',
+};
+
+// Look up a chat ID by MEMBER NAME (not telegram username).
+// This is the recommended entry point when you have a display name.
+async function getChatIdByName(memberName) {
+  if (!memberName) return null;
+  const lower = memberName.toLowerCase().trim();
+  // Hardcoded override wins first
+  const telegramUsername = TELEGRAM_HARDCODED[lower]
+    || (() => {
+         try { return require('./team').lookup(memberName)?.telegram; }
+         catch { return null; }
+       })();
+  if (!telegramUsername) return null;
+  if (lower === 'n1ka')
+    console.log(`[personal] getChatIdByName N1ka → telegram:${telegramUsername}`);
+  return getChatId(telegramUsername);
+}
+
 async function getChatId(telegramUsername) {
   if (!telegramUsername) return null;
   const lower = telegramUsername.toLowerCase();
@@ -152,5 +175,5 @@ async function setChatId(telegramUsername, chatId) {
 module.exports = {
   getTasks, getTask, addTask, updateTask, deleteTask,
   getCollabTasks, addCollabEntry, removeCollabEntry,
-  getChatId, setChatId,
+  getChatId, setChatId, getChatIdByName,
 };

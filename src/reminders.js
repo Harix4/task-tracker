@@ -192,7 +192,9 @@ async function firePersonal(r) {
     console.log('[personal-reminder] Redis key:', `personal:chatid:${(r.telegramUsername || '').toLowerCase()}`);
 
     // Resolve DM chat ID — NEVER fall back to group chat
-    const chatId = await personal.getChatId(r.telegramUsername);
+    // Use getChatIdByName so hardcoded overrides (N1ka→Abduu_19) always apply
+    const chatId = await personal.getChatIdByName(r.username)
+                || await personal.getChatId(r.telegramUsername);
     console.log('[personal-reminder] chatId found:', chatId ? `${chatId.slice(0, 4)}…` : 'NONE');
 
     if (!chatId) {
@@ -256,7 +258,7 @@ async function firePersonal(r) {
       const collabMember = team.lookup(collab);
       if (!collabMember) continue;
       if (!(await notifPref(collab, prefType))) continue;
-      const collabChatId = await personal.getChatId(collabMember.telegram);
+      const collabChatId = await personal.getChatIdByName(collab);
       if (!collabChatId) continue;
       const collabTz = await auth.getTimezone(collab);
       await telegram.queueNotification(buildMsg(collabTz), collabChatId).catch(err =>

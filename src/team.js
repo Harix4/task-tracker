@@ -5,34 +5,38 @@ const DATA = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'data', 'team.json'), 'utf8')
 );
 
-// Hardcoded aliases for names that contain numbers or unusual characters
-// that can trip up substring matching against Notion assignee strings.
-const ALIASES = {
-  'n1ka': 'N1ka',
+// ── Hardcoded overrides ────────────────────────────────────────────────────
+// Members whose names contain numbers or special characters that can
+// trip up fuzzy matching. These are resolved BEFORE any regex/includes logic.
+// Key = any lowercase variation that might appear in Notion or the codebase.
+const HARDCODED_LOOKUP = {
+  'n1ka':  { name: 'N1ka',  telegram: 'Abduu_19',  tz: 'Asia/Tbilisi' },
 };
 
-// Bidirectional, case-insensitive name match.
-// Special-cases numeric names like "N1ka" to avoid false positives.
+// Return the hardcoded record if the name matches any known alias.
+function _hardcoded(name) {
+  if (!name) return null;
+  const lower = String(name).toLowerCase().trim();
+  return HARDCODED_LOOKUP[lower] || null;
+}
+
+// Bidirectional, case-insensitive name match (standard names only).
 function _match(a, b) {
   if (!a || !b) return false;
   a = String(a).toLowerCase().trim();
   b = String(b).toLowerCase().trim();
-  if (a === b) return true;
-  // For numeric names, only allow exact match (no substring)
-  if (ALIASES[a] || ALIASES[b]) return a === b;
-  return a.includes(b) || b.includes(a);
+  return a === b || a.includes(b) || b.includes(a);
 }
 
 function lookup(name) {
   if (!name) return null;
-  const lower = String(name).toLowerCase().trim();
-  // Resolve alias first (e.g. "n1ka" → "N1ka")
-  const resolved = ALIASES[lower] || name;
-  const member   = DATA.find(m => _match(m.name, resolved));
-  if (member && lower === 'n1ka') {
-    console.log('[team] lookup N1ka → telegram:', member.telegram);
+  // Check hardcoded table first — guaranteed correct for special names
+  const hard = _hardcoded(name);
+  if (hard) {
+    console.log(`[team] lookup hardcoded: "${name}" → telegram:${hard.telegram}`);
+    return hard;
   }
-  return member || null;
+  return DATA.find(m => _match(m.name, name)) || null;
 }
 
 // Produce "@telegramHandle" for a given display name.

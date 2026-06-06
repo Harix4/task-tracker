@@ -301,20 +301,21 @@ app.post('/auth/pin', auth.requireAuth, async (req, res) => {
 
 // ── Personal task routes (auth required) ─────────────────────────────────────
 
-// Helper: send a DM to a named team member, optionally gated by a notif pref type
+// Helper: send a DM to a named team member, optionally gated by a notif pref type.
+// Uses getChatIdByName so hardcoded overrides (e.g. N1ka → Abduu_19) always apply.
 async function dmMember(memberName, text, prefType = null) {
+  const isN1ka = memberName.toLowerCase().trim() === 'n1ka';
   const member = team.lookup(memberName);
   if (!member) {
     console.warn(`[notify] dmMember: no team match for "${memberName}"`);
     return;
   }
-  // Debug logging for N1ka (has a numeric name that can break matching)
-  if (memberName.toLowerCase().includes('n1k') || member.telegram === 'Abduu_19') {
-    console.log(`[notify] N1ka lookup → telegram: ${member.telegram}`);
-  }
+  if (isN1ka) console.log(`[notify] dmMember N1ka → telegram:${member.telegram}`);
   // Check notification preference before sending
   if (prefType && !(await getUserNotifPref(member.name, prefType).catch(() => true))) return;
-  const chatId = await personal.getChatId(member.telegram);
+  // getChatIdByName uses hardcoded overrides — safer than going through telegram field
+  const chatId = await personal.getChatIdByName(memberName);
+  if (isN1ka) console.log(`[notify] N1ka chatId: ${chatId || 'NOT REGISTERED'}`);
   if (!chatId) return;
   return telegram.queueNotification(text, chatId).catch(err =>
     console.warn('[personal DM]', memberName, err.message)
