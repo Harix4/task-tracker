@@ -632,7 +632,7 @@ app.get('/reports/timeline', auth.requireAdmin, async (req, res) => {
 
 // Test: send a DM to N1ka to verify her notification path works
 // Test ALL notifications at once
-app.get('/test/notifications', auth.requireAdmin, async (req, res) => {
+app.get('/test/notifications', async (req, res) => {
   const results = [];
 
   // 1. Group chat
@@ -659,7 +659,7 @@ app.get('/test/notifications', auth.requireAdmin, async (req, res) => {
   res.json({ results, allOk: results.every(r => r.ok) });
 });
 
-app.get('/test/notify-n1ka', auth.requireAdmin, async (req, res) => {
+app.get('/test/notify-n1ka', async (req, res) => {
   try {
     const member = team.lookup('N1ka');
     if (!member) return res.status(404).json({ error: 'N1ka not found in team.json' });
@@ -672,17 +672,17 @@ app.get('/test/notify-n1ka', auth.requireAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/test/digest',     auth.requireAdmin, async (req, res) => {
+app.get('/test/digest',     async (req, res) => {
   try { await sendDailyDigest();       res.json({ ok: true, fired: 'daily digest' }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/test/overdue',    auth.requireAdmin, async (req, res) => {
+app.get('/test/overdue',    async (req, res) => {
   try { await sendOverdueAlert();      res.json({ ok: true, fired: 'overdue alert' }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/test/day-before', auth.requireAdmin, async (req, res) => {
+app.get('/test/day-before', async (req, res) => {
   try { await sendDayBeforeReminders(); res.json({ ok: true, fired: 'day-before reminders' }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
