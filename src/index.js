@@ -646,7 +646,7 @@ app.get('/test/notifications', async (req, res) => {
       groupChat = { ok: false, error: e.message };
     }
 
-    // ── Per-member DMs (all 5 team members, hardcoded to guarantee none are skipped)
+    // ── Per-member DMs — query Redis directly for real boolean values ─
     const ALL_MEMBERS = [
       { name: 'Harihar Singh', telegram: 'harixfour' },
       { name: 'Gelika',        telegram: 'Gelika'    },
@@ -656,29 +656,35 @@ app.get('/test/notifications', async (req, res) => {
     ];
     const members = [];
     for (const member of ALL_MEMBERS) {
-      const chatId = await personal.getChatIdByName(member.name).catch(() => null);
-      const entry = {
-        name:        member.name,
-        telegram:    member.telegram,
-        chatIdFound: !!chatId,
-        dmSent:      false,
-        error:       null,
-      };
-      if (chatId) {
+      // Check both lowercase and original-case keys (setChatId writes both)
+      const chatId = await redis.get(`personal:chatid:${member.telegram.toLowerCase()}`)
+                  || await redis.get(`personal:chatid:${member.telegram}`);
+      const chatIdFound = !!chatId;
+      let dmSent = false;
+      let error  = null;
+
+      if (chatIdFound) {
         try {
           const r = await telegram.sendMessage(
             `🧪 Test DM for ${member.name} — notifications working`,
             chatId
           );
-          entry.dmSent = !!r?.ok;
-          if (!r?.ok) entry.error = r?.description || 'send failed';
+          dmSent = r?.ok === true;
+          if (!dmSent) error = r?.description || 'send failed';
         } catch (e) {
-          entry.error = e.message;
+          error = e.message;
         }
       } else {
-        entry.error = 'not registered — member needs to send /register to the bot';
+        error = 'not registered — member needs to send /register to the bot';
       }
-      members.push(entry);
+
+      members.push({
+        name:        member.name,
+        telegram:    member.telegram,
+        chatIdFound: chatIdFound,
+        dmSent:      dmSent,
+        error:       error,
+      });
     }
 
     res.json({ groupChat, members });
