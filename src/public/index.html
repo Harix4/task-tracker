@@ -1775,11 +1775,13 @@
       .mob-tab-label { font-size: 10px; font-weight: 500; line-height: 1; }
       .mob-tab.mob-active { color: var(--blue); }
 
-      .mob-drawer-overlay {
+      /* Overlay/drawer shown only when JS adds style="display:block" — */
+      /* do NOT set display:block here; inline style="display:none" must win */
+      .mob-drawer-overlay.mob-open {
         display: block !important; position: fixed; inset: 0; z-index: 300;
         background: rgba(0,0,0,.45); backdrop-filter: blur(3px);
       }
-      .mob-drawer {
+      .mob-drawer.mob-open {
         display: block !important; position: fixed;
         bottom: 0; left: 0; right: 0; z-index: 301;
         background: var(--surface); border-radius: 22px 22px 0 0;
@@ -1922,8 +1924,8 @@
 </nav>
 
 <!-- ── Mobile "More" drawer ──────────────────────────────────────────────── -->
-<div class="mob-drawer-overlay" id="mobDrawerOverlay" style="display:none" onclick="closeMobDrawer()"></div>
-<div class="mob-drawer" id="mobDrawer" style="display:none">
+<div class="mob-drawer-overlay" id="mobDrawerOverlay" onclick="closeMobDrawer()"></div>
+<div class="mob-drawer" id="mobDrawer"
   <div class="mob-drawer-handle"></div>
   <button class="mob-drawer-item" onclick="navigate('recurring');closeMobDrawer()">
     <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4"/><path d="M2.5 2.5v3h3"/></svg>
@@ -5675,12 +5677,12 @@
 
   // ── Mobile nav ────────────────────────────────────────────────────────────
   function openMobDrawer() {
-    document.getElementById('mobDrawerOverlay').style.display = 'block';
-    document.getElementById('mobDrawer').style.display = 'block';
+    document.getElementById('mobDrawerOverlay').classList.add('mob-open');
+    document.getElementById('mobDrawer').classList.add('mob-open');
   }
   function closeMobDrawer() {
-    document.getElementById('mobDrawerOverlay').style.display = 'none';
-    document.getElementById('mobDrawer').style.display = 'none';
+    document.getElementById('mobDrawerOverlay').classList.remove('mob-open');
+    document.getElementById('mobDrawer').classList.remove('mob-open');
   }
 
   function updateMobileTabs(page) {
