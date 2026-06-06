@@ -1737,6 +1737,102 @@
     .dd-tomorrow { color: #fbbf24; font-weight: 500; }
     .dd-soon     { color: var(--muted); }
     .dd-overdue  { color: var(--red); font-weight: 600; }
+
+    /* ── Mobile layout (≤768px) ─────────────────────────────────── */
+    .mobile-header, .mobile-tabs, .mob-drawer-overlay, .mob-drawer { display: none; }
+
+    @media (max-width: 768px) {
+      .sidebar { display: none !important; }
+
+      .mobile-header {
+        display: flex !important; align-items: center;
+        justify-content: space-between;
+        position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+        height: 52px; padding: 0 16px;
+        background: var(--surface); border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      }
+      .mobile-header-brand { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+
+      #main { padding-top: 64px !important; padding-bottom: 72px !important; }
+      .layout { height: auto !important; }
+
+      .mobile-tabs {
+        display: flex !important;
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+        height: calc(60px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: var(--surface); border-top: 1px solid var(--border);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      }
+      .mob-tab {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 3px;
+        border: none; background: none; cursor: pointer;
+        color: var(--muted); font-family: var(--font); padding: 6px 2px;
+      }
+      .mob-tab svg { width: 22px; height: 22px; }
+      .mob-tab-label { font-size: 10px; font-weight: 500; line-height: 1; }
+      .mob-tab.mob-active { color: var(--blue); }
+
+      .mob-drawer-overlay {
+        display: block !important; position: fixed; inset: 0; z-index: 300;
+        background: rgba(0,0,0,.45); backdrop-filter: blur(3px);
+      }
+      .mob-drawer {
+        display: block !important; position: fixed;
+        bottom: 0; left: 0; right: 0; z-index: 301;
+        background: var(--surface); border-radius: 22px 22px 0 0;
+        border-top: 1px solid var(--border);
+        padding: 12px 0 calc(env(safe-area-inset-bottom,0px) + 16px);
+        box-shadow: 0 -8px 40px rgba(0,0,0,.35);
+        transform: translateY(0);
+      }
+      .mob-drawer-handle {
+        width: 36px; height: 4px; border-radius: 2px;
+        background: var(--border); margin: 0 auto 14px;
+      }
+      .mob-drawer-item {
+        display: flex; align-items: center; gap: 14px;
+        padding: 14px 24px; font-size: 15px; font-weight: 500;
+        color: var(--text); cursor: pointer; border: none;
+        background: none; font-family: var(--font); width: 100%; text-align: left;
+      }
+      .mob-drawer-item:active { background: var(--nav-hover); }
+      .mob-drawer-item svg { flex-shrink: 0; opacity: 0.8; }
+
+      /* Panel slides up from bottom */
+      .panel {
+        width: 100% !important; height: 92dvh !important;
+        top: auto !important; bottom: 0 !important;
+        right: 0 !important; left: 0 !important;
+        border-left: none !important;
+        border-radius: 22px 22px 0 0 !important;
+        transform: translateY(100%) !important;
+      }
+      .panel.open { transform: translateY(0) !important; }
+      .panel-body { -webkit-overflow-scrolling: touch; }
+
+      /* Touch targets */
+      .task-row { min-height: 60px !important; }
+      td { height: 60px !important; }
+      .task-cb { width: 28px !important; height: 28px !important; }
+
+      /* 16px min to prevent iOS zoom */
+      input, textarea, select,
+      .form-input, .comment-input, .search-input { font-size: 16px !important; }
+
+      /* 2-col metrics on mobile */
+      .metrics-grid, .report-metrics-grid { grid-template-columns: repeat(2,1fr) !important; }
+      .dash-cols { grid-template-columns: 1fr !important; }
+
+      /* Full-width layout fixes */
+      .search-row { flex-wrap: wrap; }
+      .cat-select { width: 100% !important; min-width: 0 !important; }
+      .kb-board { -webkit-overflow-scrolling: touch; }
+      .bulk-bar { min-width: 0 !important; left: 12px; right: 12px; transform: none !important; }
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    }
   </style>
 </head>
 <body class="dark">
@@ -1793,6 +1889,66 @@
 <!-- ── First-time setup screen ────────────────────────────────────────────── -->
 <div class="setup-screen" id="setupScreen" style="display:none">
   <div class="setup-card" id="setupCard"></div>
+</div>
+
+<!-- ── Mobile header (hidden on desktop via CSS) ─────────────────────────── -->
+<header class="mobile-header" id="mobileHeader">
+  <div class="mobile-header-brand">Klone HQ</div>
+  <div class="mobile-header-right" id="mobileHeaderAvatar"></div>
+</header>
+
+<!-- ── Mobile bottom tab bar ─────────────────────────────────────────────── -->
+<nav class="mobile-tabs" id="mobileTabs">
+  <button class="mob-tab mob-active" data-page="dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 22 22" fill="currentColor"><rect x="1" y="1" width="8" height="8" rx="2"/><rect x="13" y="1" width="8" height="8" rx="2"/><rect x="1" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+    <span class="mob-tab-label">Home</span>
+  </button>
+  <button class="mob-tab" data-page="tasks" onclick="navigate('tasks')">
+    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 5h14M4 11h14M4 17h8"/></svg>
+    <span class="mob-tab-label">Tasks</span>
+  </button>
+  <button class="mob-tab" data-page="personal" onclick="navigate('personal')">
+    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="7" r="4"/><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>
+    <span class="mob-tab-label">Personal</span>
+  </button>
+  <button class="mob-tab" data-page="dashboard" onclick="navigate('dashboard')">
+    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="9"/><circle cx="11" cy="11" r="3"/><path d="M11 2v2M11 18v2M2 11h2M18 11h2"/></svg>
+    <span class="mob-tab-label">Goals</span>
+  </button>
+  <button class="mob-tab" onclick="openMobDrawer()">
+    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 5h16M3 11h16M3 17h16"/></svg>
+    <span class="mob-tab-label">More</span>
+  </button>
+</nav>
+
+<!-- ── Mobile "More" drawer ──────────────────────────────────────────────── -->
+<div class="mob-drawer-overlay" id="mobDrawerOverlay" style="display:none" onclick="closeMobDrawer()"></div>
+<div class="mob-drawer" id="mobDrawer" style="display:none">
+  <div class="mob-drawer-handle"></div>
+  <button class="mob-drawer-item" onclick="navigate('recurring');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 1 0 1.2-3.4"/><path d="M2.5 2.5v3h3"/></svg>
+    Recurring
+  </button>
+  <button class="mob-drawer-item" onclick="navigate('resources');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 1.5h6l3.5 3.5V14H4V1.5z"/><path d="M10 1.5v3.5h3.5"/><path d="M6.5 7.5h3M6.5 10h4.5"/></svg>
+    Resources
+  </button>
+  <button class="mob-drawer-item" onclick="navigate('completed');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5 8l2 2 4-4"/></svg>
+    Completed
+  </button>
+  <button class="mob-drawer-item" id="mobPerformanceItem" onclick="navigate('performance');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="9" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="10" rx="1"/><rect x="12" y="1" width="3" height="14" rx="1"/></svg>
+    Performance
+  </button>
+  <button class="mob-drawer-item" id="mobReportsItem" onclick="navigate('reports');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l3.5-4 3 2.5L12 5l2 2"/><rect x="1" y="1" width="14" height="14" rx="2"/></svg>
+    Reports
+  </button>
+  <button class="mob-drawer-item" onclick="navigate('settings');closeMobDrawer()">
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.2M8 13.3v1.2M1.5 8h1.2M13.3 8h1.2M3.4 3.4l.85.85M11.75 11.75l.85.85M3.4 12.6l.85-.85M11.75 4.25l.85-.85"/></svg>
+    Settings
+  </button>
 </div>
 
 <!-- ── App ───────────────────────────────────────────────────────────────── -->
@@ -5507,6 +5663,40 @@
       case 'settings':    renderSettings();                     break;
       case 'reports':     renderReports();                      break;
     }
+  }
+
+  // ── Mobile nav ────────────────────────────────────────────────────────────
+  function openMobDrawer() {
+    document.getElementById('mobDrawerOverlay').style.display = 'block';
+    document.getElementById('mobDrawer').style.display = 'block';
+  }
+  function closeMobDrawer() {
+    document.getElementById('mobDrawerOverlay').style.display = 'none';
+    document.getElementById('mobDrawer').style.display = 'none';
+  }
+
+  function updateMobileTabs(page) {
+    // Sync bottom tab active state; Goals button maps to dashboard
+    const tabMap = { dashboard: 'dashboard', tasks: 'tasks', personal: 'personal' };
+    document.querySelectorAll('.mob-tab[data-page]').forEach(btn => {
+      btn.classList.toggle('mob-active', btn.dataset.page === (tabMap[page] || ''));
+    });
+    // Update mobile header avatar
+    const u = state.user;
+    const avatarEl = document.getElementById('mobileHeaderAvatar');
+    if (avatarEl && u) avatarEl.innerHTML = avatarHtml(u.username, 30);
+    // Hide admin-only drawer items for members
+    const isAdmin = u?.role === 'admin';
+    document.getElementById('mobPerformanceItem')?.style && (document.getElementById('mobPerformanceItem').style.display = isAdmin ? '' : 'none');
+    document.getElementById('mobReportsItem')?.style && (document.getElementById('mobReportsItem').style.display = isAdmin ? '' : 'none');
+  }
+
+  // Patch navigate to also update mobile tabs
+  const _origNavigate = navigate;
+  function navigate(page) {
+    closeMobDrawer();
+    _origNavigate(page);
+    updateMobileTabs(page);
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────

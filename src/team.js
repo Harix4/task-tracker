@@ -5,26 +5,40 @@ const DATA = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'data', 'team.json'), 'utf8')
 );
 
-// Bidirectional, case-insensitive name match (same logic as namesMatch in index.js)
+// Hardcoded aliases for names that contain numbers or unusual characters
+// that can trip up substring matching against Notion assignee strings.
+const ALIASES = {
+  'n1ka': 'N1ka',
+};
+
+// Bidirectional, case-insensitive name match.
+// Special-cases numeric names like "N1ka" to avoid false positives.
 function _match(a, b) {
   if (!a || !b) return false;
   a = String(a).toLowerCase().trim();
   b = String(b).toLowerCase().trim();
-  return a === b || a.includes(b) || b.includes(a);
+  if (a === b) return true;
+  // For numeric names, only allow exact match (no substring)
+  if (ALIASES[a] || ALIASES[b]) return a === b;
+  return a.includes(b) || b.includes(a);
 }
 
 function lookup(name) {
   if (!name) return null;
-  return DATA.find(m => _match(m.name, name)) || null;
+  const lower = String(name).toLowerCase().trim();
+  // Resolve alias first (e.g. "n1ka" → "N1ka")
+  const resolved = ALIASES[lower] || name;
+  const member   = DATA.find(m => _match(m.name, resolved));
+  if (member && lower === 'n1ka') {
+    console.log('[team] lookup N1ka → telegram:', member.telegram);
+  }
+  return member || null;
 }
 
 // Produce "@telegramHandle" for a given display name.
-// Falls back to "@name" if not found so notifications always
-// produce a mention-like string rather than a bare name.
 function tag(name) {
   const member = lookup(name);
   if (member) return `@${member.telegram}`;
-  // Unknown member — prefix with @ so it still looks like a mention
   return name ? `@${name}` : 'Unassigned';
 }
 

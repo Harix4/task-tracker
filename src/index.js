@@ -304,7 +304,14 @@ app.post('/auth/pin', auth.requireAuth, async (req, res) => {
 // Helper: send a DM to a named team member, optionally gated by a notif pref type
 async function dmMember(memberName, text, prefType = null) {
   const member = team.lookup(memberName);
-  if (!member) return;
+  if (!member) {
+    console.warn(`[notify] dmMember: no team match for "${memberName}"`);
+    return;
+  }
+  // Debug logging for N1ka (has a numeric name that can break matching)
+  if (memberName.toLowerCase().includes('n1k') || member.telegram === 'Abduu_19') {
+    console.log(`[notify] N1ka lookup → telegram: ${member.telegram}`);
+  }
   // Check notification preference before sending
   if (prefType && !(await getUserNotifPref(member.name, prefType).catch(() => true))) return;
   const chatId = await personal.getChatId(member.telegram);
@@ -619,6 +626,20 @@ app.get('/reports/timeline', auth.requireAdmin, async (req, res) => {
 });
 
 // ── Test endpoints (admin only) — fire scheduler jobs immediately ─────────────
+
+// Test: send a DM to N1ka to verify her notification path works
+app.get('/test/notify-n1ka', auth.requireAdmin, async (req, res) => {
+  try {
+    const member = team.lookup('N1ka');
+    if (!member) return res.status(404).json({ error: 'N1ka not found in team.json' });
+    console.log('[notify-n1ka] member:', member);
+    const chatId = await personal.getChatId(member.telegram);
+    console.log(`[notify-n1ka] chatId for ${member.telegram}:`, chatId);
+    if (!chatId) return res.json({ ok: false, telegram: member.telegram, chatId: null, error: 'Not registered — N1ka needs to send /register to the bot' });
+    await telegram.queueNotification('🔔 Test DM for N1ka — notifications are working!', chatId);
+    res.json({ ok: true, telegram: member.telegram, chatIdPreview: `${chatId.slice(0,4)}…` });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 app.get('/test/digest',     auth.requireAdmin, async (req, res) => {
   try { await sendDailyDigest();       res.json({ ok: true, fired: 'daily digest' }); }
