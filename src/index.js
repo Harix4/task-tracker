@@ -75,14 +75,16 @@ async function addTaskHistory(taskId, entry) {
 
 // ── Startup validation ──────────────────────────────────────────────────────
 
-// Warn about missing env vars instead of crashing — app runs in degraded mode
-const OPTIONAL_WARN = [
+// ── Startup env-var status (visible in Railway logs) ─────────────────────────
+const ENV_CHECKS = [
   'NOTION_TOKEN', 'NOTION_TASKS_DB_ID',
   'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID',
   'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
+  'JWT_SECRET',
 ];
-for (const key of OPTIONAL_WARN) {
-  if (!process.env[key]) console.warn(`[startup] WARNING: ${key} is not set — related features may be unavailable`);
+console.log('[startup] Environment variable status:');
+for (const key of ENV_CHECKS) {
+  console.log(`[startup]   ${key}: ${process.env[key] ? '✅ set' : '❌ MISSING'}`);
 }
 const _startedAt = Date.now();
 
@@ -629,6 +631,34 @@ app.get('/reports/timeline', auth.requireAdmin, async (req, res) => {
 // ── Test endpoints (admin only) — fire scheduler jobs immediately ─────────────
 
 // Test: send a DM to N1ka to verify her notification path works
+// Test ALL notifications at once
+app.get('/test/notifications', auth.requireAdmin, async (req, res) => {
+  const results = [];
+
+  // 1. Group chat
+  try {
+    const r = await telegram.sendMessage('🧪 Test notification — all systems working', process.env.TELEGRAM_CHAT_ID);
+    results.push({ target: 'group_chat', ok: r.ok });
+  } catch (e) { results.push({ target: 'group_chat', ok: false, error: e.message }); }
+
+  // 2. Each team member's DM
+  for (const member of team.getAll()) {
+    const chatId = await personal.getChatIdByName(member.name).catch(() => null);
+    if (!chatId) {
+      results.push({ target: member.name, telegram: member.telegram, ok: false, error: 'not registered' });
+      continue;
+    }
+    try {
+      const r = await telegram.sendMessage(`🧪 Test DM for ${member.name} — notifications working`, chatId);
+      results.push({ target: member.name, telegram: member.telegram, chatIdPreview: `${chatId.slice(0,4)}…`, ok: r.ok });
+    } catch (e) {
+      results.push({ target: member.name, telegram: member.telegram, ok: false, error: e.message });
+    }
+  }
+
+  res.json({ results, allOk: results.every(r => r.ok) });
+});
+
 app.get('/test/notify-n1ka', auth.requireAdmin, async (req, res) => {
   try {
     const member = team.lookup('N1ka');
